@@ -1,0 +1,21 @@
+# --- Mandatory core libraries (explicitly required) ---
+rasterio==1.5.0          # PyPI release Jan 2026 :contentReference[oaicite:2]{index=2}
+scikit-learn==1.8.0      # PyPI release Dec 2025 :contentReference[oaicite:3]{index=3}
+tensorflow==2.20.0       # PyPI latest (as of Aug 2025) :contentReference[oaicite:4]{index=4}
+
+# --- GEE integration ---
+earthengine-api==1.7.10  # PyPI release Jan 2026 :contentReference[oaicite:5]{index=5}
+
+# --- Pipeline/data handling ---
+numpy==2.1.3
+pandas==2.2.3
+pyyaml==6.0.2
+pyarrow==18.1.0
+
+# --- Geospatial tables (village/sub-municipal units) ---
+geopandas==1.0.1
+shapely==2.0.6
+pyproj==3.7.0
+
+# --- Optional: download GEE exports from Google Cloud Storage ---
+google-cloud-storage==2.19.0

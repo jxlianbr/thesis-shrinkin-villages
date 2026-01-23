@@ -1,0 +1,35 @@
+project:
+  name: shrinking-villages-japan
+  run_id: "run_001"
+  outputs_dir: "outputs"
+
+time:
+  start: "2018-01-01"
+  end: "2023-12-31"
+  composite: "monthly"
+
+gee:
+  enabled: true
+  cloud_project: "YOUR_GCP_PROJECT_ID"
+  gcs_bucket: "YOUR_GCS_BUCKET"
+  export_prefix: "shrinking_villages"
+  scale_m: 10
+
+data:
+  boundaries_path: "admin_demographics/boundaries/villages.gpkg"
+  boundaries_layer: "villages"
+  unit_id_field: "unit_id"
+
+  demographics_path: "admin_demographics/demographics/village_demographics.csv"
+  demographics_unit_id_field: "unit_id"
+
+features:
+  compute_ndvi: true
+  compute_ndbi: true
+  compute_glcm: false
+  include_viirs: true
+
+outputs:
+  features_table_csv: "outputs/final/features_table.csv"
+  features_table_parquet: "outputs/final/features_table.parquet"
+  run_manifest_json: "outputs/final/run_manifest.json"

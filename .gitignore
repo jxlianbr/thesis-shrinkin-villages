@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+
+# Environments
+.venv/
+.env
+.env.*
+pip-wheel-metadata/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Outputs (generated artifacts must not be versioned)
+outputs/*
+!outputs/.gitkeep
+
+# Local data (keep raw inputs out of Git; track via docs/data_manifest.md instead)
+data_raw/
+data_intermediate/
+
+# Secrets / credentials
+*credentials*
+*secret*
+*token*

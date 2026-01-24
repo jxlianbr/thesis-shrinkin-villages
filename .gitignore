@@ -38,3 +38,4 @@ data_intermediate/
 # Raw inputs (local-only; provenance recorded in docs/)
 admin_demographics/boundaries_raw/
 admin_demographics/demographics_raw/
+admin_demographics/boundaries_export/

@@ -14,10 +14,12 @@ gee:
   gcs_bucket: "YOUR_GCS_BUCKET"
   export_prefix: "shrinking_villages"
   scale_m: 10
+  boundaries_asset_id_mura: "projects/ee-brodnow77/assets/mura_shp"
+  boundaries_asset_id_aza: "projects/ee-brodnow77/assets/aza_shp"
 
 data:
-  boundaries_path: "admin_demographics/boundaries/villages.gpkg"
-  boundaries_layer: "villages"
+  boundaries_path: "admin_demographics/boundaries/mura.gpkg"
+  boundaries_layer: "mura"
   unit_id_field: "unit_id"
 
   demographics_path: "admin_demographics/demographics/village_demographics.csv"

@@ -55,3 +55,7 @@ remote_sensing_sources:
     - "Landsat 8 OLI/TIRS (30 m)"
   nightlight_optional:
     - "VIIRS-DNB (~500 m)"
+
+run_mode:
+  unit_level: "mura"   # set to "aza" when you want sub-municipal runs
+

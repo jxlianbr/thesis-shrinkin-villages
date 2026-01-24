@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List
 
+import ee
 import pandas as pd
 
 
@@ -38,9 +39,14 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     # Backbone assumption for Task 1: boundaries are stored as an EE FeatureCollection asset.
     # Set this in config by replacing the placeholder below.
     # Example: "users/<username>/villages_fc"
-    boundaries_asset_id = cfg["gee"].get("boundaries_asset_id", "")
-    if not boundaries_asset_id:
-        raise ValueError("Missing cfg.gee.boundaries_asset_id (Earth Engine FeatureCollection asset id).")
+    unit_level = cfg.get("run_mode", {}).get("unit_level", "mura")
+
+    if unit_level == "mura":
+        boundaries_asset_id = cfg["gee"]["boundaries_asset_id_mura"]
+    elif unit_level == "aza":
+        boundaries_asset_id = cfg["gee"]["boundaries_asset_id_aza"]
+    else:
+        raise ValueError("run_mode.unit_level must be 'mura' or 'aza'")
 
     fc = ee.FeatureCollection(boundaries_asset_id)
     unit_id_field = cfg["data"]["unit_id_field"]

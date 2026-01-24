@@ -34,3 +34,7 @@ data_intermediate/
 *credentials*
 *secret*
 *token*
+
+# Raw inputs (local-only; provenance recorded in docs/)
+admin_demographics/boundaries_raw/
+admin_demographics/demographics_raw/

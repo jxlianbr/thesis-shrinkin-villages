@@ -33,3 +33,23 @@ outputs:
   features_table_csv: "outputs/final/features_table.csv"
   features_table_parquet: "outputs/final/features_table.parquet"
   run_manifest_json: "outputs/final/run_manifest.json"
+
+study_area:
+  prefectures:
+    - Aomori
+    - Akita
+
+analysis_units:
+  - mura
+  - aza
+
+privacy:
+  aggregation_level: "mura/aza"
+  boundary_authority: "Statistics Bureau of Japan"
+
+remote_sensing_sources:
+  optical_primary:
+    - "Sentinel-2 MSI (10 m)"
+    - "Landsat 8 OLI/TIRS (30 m)"
+  nightlight_optional:
+    - "VIIRS-DNB (~500 m)"

@@ -10,11 +10,11 @@ time:
 
 gee:
   enabled: true
-  cloud_project: "ee-brodnow77 "
+  cloud_project: "ee-brodnow77"
   #gcs_bucket: "YOUR_GCS_BUCKET"
   export_prefix: "shrinking_villages"
   scale_m: 10
-  boundaries_asset_id_mura: "projects/ee-brodnow77/assets/mura_shp"
+  boundaries_asset_id_mura: "projects/ee-brodnow77/assets/mura_jis_shp"
   boundaries_asset_id_aza: "projects/ee-brodnow77/assets/aza_shp"
   export_target: "asset"          # allowed: "asset" | "drive" | "gcs"
   export_asset_folder: "projects/ee-brodnow77/assets/thesis_exports"  # create this folder in EE Assets UI

@@ -32,15 +32,24 @@ def _export_fc_to_asset(fc: ee.FeatureCollection, asset_id: str, description: st
 
 
 def _download_table_asset_csv(asset_id: str, out_csv_path: str) -> None:
-    download_id = ee.data.getTableDownloadId(
-        {
-            "table": asset_id,
-            "format": "CSV",
-            "filename": os.path.basename(out_csv_path),
-        }
-    )
-    url = ee.data.makeTableDownloadUrl(download_id)
+    """
+    Download an EE TABLE asset (FeatureCollection) as CSV without using GCS/Drive.
+    Uses FeatureCollection.getDownloadURL(...), which is supported by the Python API.
+    """
+    fc = ee.FeatureCollection(asset_id)
+
     os.makedirs(os.path.dirname(out_csv_path), exist_ok=True)
+    filename = os.path.splitext(os.path.basename(out_csv_path))[0]
+
+    # Optional: restrict columns if you want deterministic schema
+    # selectors = fc.first().propertyNames().getInfo()
+    selectors = None
+
+    url = fc.getDownloadURL(
+        filetype="CSV",
+        selectors=selectors,
+        filename=filename,
+    )
     urllib.request.urlretrieve(url, out_csv_path)
 
 
@@ -76,6 +85,12 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     export_target = (cfg.get("gee", {}).get("export_target") or "asset").strip().lower()
     asset_folder = (cfg.get("gee", {}).get("export_asset_folder") or "").rstrip("/")
     keep_assets = bool(cfg.get("gee", {}).get("keep_export_assets", True))
+
+    if export_target == "asset":
+        if "\\" in asset_folder:
+            raise ValueError("cfg.gee.export_asset_folder must use forward slashes '/', not backslashes.")
+        if not asset_folder.startswith("projects/") or "/assets/" not in asset_folder:
+            raise ValueError("cfg.gee.export_asset_folder must be like: projects/<project-id>/assets/<folder>")
 
     if export_target not in {"asset", "drive"}:
         raise ValueError("cfg.gee.export_target must be 'asset' or 'drive' (GCS disabled).")
@@ -148,7 +163,23 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         start_m, end_m = month_range(ym)
 
         # Composite
-        comp = s2.filterDate(start_m, end_m).median()
+        # Monthly subset
+        month_s2 = s2.filterDate(start_m, end_m)
+
+        # If empty, skip the month (prevents "Image has no bands" on select())
+        n_s2 = month_s2.size().getInfo()
+        if n_s2 == 0:
+            print(f"[WARN] {ym}: Sentinel-2 empty after filters; skipping month.")
+            continue
+
+        # Composite
+        comp = month_s2.median()
+
+        # Extra safety: composite can still end up with 0 bands in edge cases
+        n_bands = comp.bandNames().size().getInfo()
+        if n_bands == 0:
+            print(f"[WARN] {ym}: composite has 0 bands; skipping month.")
+            continue    
 
         # Select consistent bands/features
         bands = ["B2", "B3", "B4", "B8", "B11"]
@@ -172,7 +203,7 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
             vimg = viirs.filterDate(start_m, end_m).mean()
             vreduced = vimg.reduceRegions(
                 collection=fc,
-                reducer=ee.Reducer.mean(),
+                reducer=ee.Reducer.mean().setOutputs(["viirs_mean"]),
                 scale=500,
             )
             join = ee.Join.inner()
@@ -190,8 +221,8 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         reduced = reduced.map(lambda f: ee.Feature(f).set({"month": ym}))
 
         # ---- Export + download (NO GCS) ----
-        description = f"features_{unit_level}_{ym}".replace("-", "_")
-        out_csv_path = os.path.join("outputs", "features_tables", f"{description}.csv")
+        description = f"features_{ym}"
+        out_csv_path = f"outputs/gee/features_{ym}.csv"
 
         if export_target == "asset":
             asset_id = f"{asset_folder}/{description}"

@@ -86,13 +86,56 @@ def main(config_path: str = "config/config.yaml") -> None:
 
     # 6) Demographic join (local, deterministic join by unit_id)
     demo = pd.read_csv(demographics_path)
-    unit_id_left = cfg["data"]["unit_id_field"]
     unit_id_right = cfg["data"]["demographics_unit_id_field"]
 
     if features_df is None:
         raise RuntimeError("features_df not produced.")
 
-    merged = features_df.merge(demo, left_on=unit_id_left, right_on=unit_id_right, how="left")
+    # Normalize join keys (defensive)
+    demo[unit_id_right] = demo[unit_id_right].astype(str).str.strip()
+    features_df["unit_id"] = features_df["unit_id"].astype(str).str.strip()
+
+    unit_level = cfg.get("run_mode", {}).get("unit_level", "mura")
+
+    if unit_level == "mura":
+        # direct join: mura:<PrefName>:<5-digit municipality code>
+        unit_id_left = cfg["data"]["unit_id_field"]
+        merged = features_df.merge(
+            demo,
+            left_on=unit_id_left,
+            right_on=unit_id_right,
+            how="left",
+            validate="m:1",
+        )
+
+    elif unit_level == "aza":
+        # demographics are municipality-level -> map aza -> municipality using first 5 digits of its code
+        # aza unit_id example: aza:Aomori:022010010  -> muni_code = 02201 -> mura_unit_id = mura:Aomori:02201
+        parts = features_df["unit_id"].str.split(":", n=2, expand=True)
+        pref = parts[1].astype(str).str.strip()
+        code = parts[2].astype(str).str.replace(r"\D", "", regex=True)
+        muni_code = code.str[:5].str.zfill(5)
+
+        features_df["_demo_join_id"] = "mura:" + pref + ":" + muni_code
+
+        merged = features_df.merge(
+            demo,
+            left_on="_demo_join_id",
+            right_on=unit_id_right,
+            how="left",
+            validate="m:1",
+            suffixes=("", "_demo"),
+        )
+
+    else:
+        raise ValueError("run_mode.unit_level must be 'mura' or 'aza'")
+
+    # Hard fail if the join is effectively empty
+    demo_cols = [c for c in merged.columns if c.startswith(("pop_", "age_", "households_"))]
+    if demo_cols and merged[demo_cols].isna().mean().max() > 0.95:
+        raise RuntimeError("Demographics join failed: >95% of demographic columns are NaN.")
+
+    features_df = merged
 
     manifest["steps"].append({"step": "demographic_join", "status": "ok", "ts_utc": _utc_now()})
 

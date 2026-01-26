@@ -32,6 +32,7 @@ def _export_fc_to_asset(fc: ee.FeatureCollection, asset_id: str, description: st
         collection=fc,
         description=description,
         assetId=asset_id,
+        overwrite=True,
     )
     task.start()
     _wait_for_task(task)

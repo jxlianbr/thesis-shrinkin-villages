@@ -25,7 +25,6 @@ data:
   boundaries_path: "admin_demographics/boundaries/mura_jis.gpkg"
   boundaries_layer: "mura"
   unit_id_field: "unit_id"
-
   demographics_path: "admin_demographics/demographics/village_demographics.csv"
   demographics_unit_id_field: "unit_id"
 
@@ -66,4 +65,3 @@ run_mode:
   months_override: ["2023-11", "2023-12"]   # small range for iteration
   unit_sample_n: 10           # 0 or null = all units
   skip_existing_month_csv: true
-

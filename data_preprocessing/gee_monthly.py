@@ -20,13 +20,6 @@ def _wait_for_task(task: ee.batch.Task, poll_s: int = 15) -> None:
             raise RuntimeError(f"EE task {state}: {status}")
         time.sleep(poll_s)
 
-def _strip_geometry(fc: ee.FeatureCollection) -> ee.FeatureCollection:
-    # Convert each feature to a null-geometry feature holding only properties.
-    def _to_table_feature(f):
-        f = ee.Feature(f)
-        return ee.Feature(None, f.toDictionary())
-    return fc.map(_to_table_feature)
-
 def _export_fc_to_asset(fc: ee.FeatureCollection, asset_id: str, description: str) -> None:
     task = ee.batch.Export.table.toAsset(
         collection=fc,
@@ -37,20 +30,15 @@ def _export_fc_to_asset(fc: ee.FeatureCollection, asset_id: str, description: st
     task.start()
     _wait_for_task(task)
 
-
-def _download_table_asset_csv(asset_id: str, out_csv_path: str) -> None:
+def _download_table_asset_csv(asset_id: str, out_csv_path: str, selectors: List[str] | None = None) -> None:
     """
     Download an EE TABLE asset (FeatureCollection) as CSV without using GCS/Drive.
-    Uses FeatureCollection.getDownloadURL(...), which is supported by the Python API.
+    If selectors is provided, only those properties are included (excludes .geo).
     """
     fc = ee.FeatureCollection(asset_id)
 
     os.makedirs(os.path.dirname(out_csv_path), exist_ok=True)
     filename = os.path.splitext(os.path.basename(out_csv_path))[0]
-
-    # Optional: restrict columns if you want deterministic schema
-    # selectors = fc.first().propertyNames().getInfo()
-    selectors = None
 
     url = fc.getDownloadURL(
         filetype="CSV",
@@ -117,6 +105,16 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     fc = ee.FeatureCollection(boundaries_asset_id)
     unit_id_field = cfg["data"]["unit_id_field"]
 
+    # --- run_mode knobs ---
+    fast_dev = bool(cfg.get("run_mode", {}).get("fast_dev", False))
+    months_override = cfg.get("run_mode", {}).get("months_override")
+    unit_sample_n = int(cfg.get("run_mode", {}).get("unit_sample_n") or 0)
+    skip_existing = bool(cfg.get("run_mode", {}).get("skip_existing_month_csv", True))
+
+# Deterministic sampling for fast iteration
+    if unit_sample_n > 0:   
+        fc = fc.sort(unit_id_field).limit(unit_sample_n)
+
     # --- Collections ---
     start = cfg["time"]["start"]
     end = cfg["time"]["end"]
@@ -126,6 +124,11 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         .filterDate(start, end)
         .filterBounds(fc)
     )
+
+    cmax = cfg.get("gee", {}).get("cloudy_pixel_percentage_max")
+    if cmax is not None:
+        s2 = s2.filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE", float(cmax)))
+
 
     # Basic S2 mask via SCL (keeps non-cloud, non-shadow)
     def mask_s2(img):
@@ -156,7 +159,8 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
 
     # --- Monthly composite + zonal stats ---
     scale_m = int(cfg["gee"]["scale_m"])
-    ym_list = _ym_list(start, end)
+    ym_list = months_override if months_override else _ym_list(start, end)
+
 
     def month_range(ym: str):
         y, m = map(int, ym.split("-"))
@@ -226,22 +230,45 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
 
         # Add month column
         reduced = reduced.map(lambda f: ee.Feature(f).set({"month": ym}))
-        # Strip geometry before exporting/downloading CSV
-        reduced = _strip_geometry(reduced)
 
         # ---- Export + download (NO GCS) ----
         description = f"features_{ym}"
-        out_csv_path = f"outputs/gee/features_{ym}.csv"
+        out_csv_path = f"outputs/gee/monthly/features_{unit_level}_{ym}.csv"
 
-        if export_target == "asset":
+        if skip_existing and os.path.exists(out_csv_path):
+            rows.append(pd.read_csv(out_csv_path))
+            continue
+
+        selectors = [
+            unit_id_field,
+            "unit_level",
+            "pref_name",
+            "unit_code",
+            "month",
+            "B2", "B3", "B4", "B8", "B11",
+        ]
+        if cfg["features"]["compute_ndvi"]:
+            selectors.append("NDVI")
+        if cfg["features"]["compute_ndbi"]:
+            selectors.append("NDBI")
+        if include_viirs:
+            selectors.append("viirs_mean")
+        # Ensure output dir exists
+        os.makedirs(os.path.dirname(out_csv_path), exist_ok=True)
+
+        if fast_dev:
+             # Direct download of the computed FeatureCollection (no EE batch export tasks).
+            url = reduced.getDownloadURL(filetype="CSV", selectors=selectors, filename=description)
+            urllib.request.urlretrieve(url, out_csv_path)
+
+        elif export_target == "asset":
             asset_id = f"{asset_folder}/{description}"
             _export_fc_to_asset(reduced, asset_id=asset_id, description=description)
-            _download_table_asset_csv(asset_id, out_csv_path=out_csv_path)
-            if not keep_assets:
-                ee.data.deleteAsset(asset_id)
+            _download_table_asset_csv(asset_id, out_csv_path=out_csv_path, selectors=selectors)
+        if not keep_assets:
+            ee.data.deleteAsset(asset_id)
 
         elif export_target == "drive":
-            # Exports to Google Drive; this does not auto-download.
             task = ee.batch.Export.table.toDrive(
                 collection=reduced,
                 description=description,
@@ -250,12 +277,11 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
             )
             task.start()
             _wait_for_task(task)
-            raise RuntimeError(
-                "Exported to Google Drive. Download manually from Drive or implement Drive API download."
-            )
+            raise RuntimeError("Exported to Google Drive. Download manually from Drive or implement Drive API download.")
 
-        df = pd.read_csv(out_csv_path)
-        rows.append(df)
+
+    df = pd.read_csv(out_csv_path)
+    rows.append(df)
 
     out = pd.concat(rows, ignore_index=True)
 

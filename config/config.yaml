@@ -62,6 +62,6 @@ remote_sensing_sources:
 run_mode:
   unit_level: "mura"   # set to "aza" when you want sub-municipal runs
   fast_dev: true              # true = direct download, no EE export tasks
-  months_override: ["2023-11", "2023-12"]   # small range for iteration
+  months_override: ["2019-06"]   # small range for iteration
   unit_sample_n: 10           # 0 or null = all units
   skip_existing_month_csv: true

@@ -20,6 +20,12 @@ def _wait_for_task(task: ee.batch.Task, poll_s: int = 15) -> None:
             raise RuntimeError(f"EE task {state}: {status}")
         time.sleep(poll_s)
 
+def _strip_geometry(fc: ee.FeatureCollection) -> ee.FeatureCollection:
+    # Convert each feature to a null-geometry feature holding only properties.
+    def _to_table_feature(f):
+        f = ee.Feature(f)
+        return ee.Feature(None, f.toDictionary())
+    return fc.map(_to_table_feature)
 
 def _export_fc_to_asset(fc: ee.FeatureCollection, asset_id: str, description: str) -> None:
     task = ee.batch.Export.table.toAsset(
@@ -219,6 +225,8 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
 
         # Add month column
         reduced = reduced.map(lambda f: ee.Feature(f).set({"month": ym}))
+        # Strip geometry before exporting/downloading CSV
+        reduced = _strip_geometry(reduced)
 
         # ---- Export + download (NO GCS) ----
         description = f"features_{ym}"

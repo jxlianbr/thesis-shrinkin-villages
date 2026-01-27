@@ -30,12 +30,16 @@ def _export_fc_to_asset(fc: ee.FeatureCollection, asset_id: str, description: st
     task.start()
     _wait_for_task(task)
 
-def _download_table_asset_csv(asset_id: str, out_csv_path: str, selectors: List[str] | None = None) -> None:
+def _download_table_asset_csv(asset_id: str, out_csv_path: str, cfg: Dict[str, Any], selectors: List[str] | None = None) -> None:
     """
     Download an EE TABLE asset (FeatureCollection) as CSV without using GCS/Drive.
     If selectors is provided, only those properties are included (excludes .geo).
     """
     fc = ee.FeatureCollection(asset_id)
+    
+    prefs = cfg.get("study_area", {}).get("prefectures", [])
+    if prefs:
+        fc = fc.filter(ee.Filter.inList("pref_name", prefs))
 
     os.makedirs(os.path.dirname(out_csv_path), exist_ok=True)
     filename = os.path.splitext(os.path.basename(out_csv_path))[0]
@@ -134,6 +138,8 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     months_override = cfg.get("run_mode", {}).get("months_override")
     unit_sample_n = int(cfg.get("run_mode", {}).get("unit_sample_n") or 0)
     skip_existing = bool(cfg.get("run_mode", {}).get("skip_existing_month_csv", True))
+    landsat8_enabled = bool(cfg.get("gee", {}).get("landsat8_enabled", False))
+    landsat8_collection_id = cfg.get("gee", {}).get("landsat8_collection_id") or "LANDSAT/LC08/C02/T1_L2"
 
 # Deterministic sampling for fast iteration
     if unit_sample_n > 0:   
@@ -161,6 +167,17 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         return img.updateMask(keep)
 
     s2 = s2.map(mask_s2)
+
+    # --- Landsat 8 (registered + accessible via GEE; not fused into outputs yet) ---
+    l8 = None
+    if landsat8_enabled:
+        l8 = (
+            ee.ImageCollection(landsat8_collection_id)
+            .filterDate(start, end)
+            .filterBounds(fc)
+        )
+        #Lightweight access check (fails fast if misconfigured / no permission)
+        _ = l8.first().getInfo()
 
     # NDVI/NDBI on S2 bands (B8 NIR, B4 red, B11 SWIR)
     def add_indices(img):

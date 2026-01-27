@@ -19,7 +19,9 @@ gee:
   export_target: "asset"          # allowed: "asset" | "drive" | "gcs"
   export_asset_folder: "projects/ee-brodnow77/assets/thesis_exports"  # create this folder in EE Assets UI
   keep_export_assets: true        # false = delete temporary assets after local download
-  cloudy_pixel_percentage_max: 80 
+  cloudy_pixel_percentage_max: 80
+  landsat8_enabled: true
+  landsat8_collection_id: "LANDSAT/LC08/C02/T1_L2"
 
 data:
   boundaries_path: "admin_demographics/boundaries/mura_jis.gpkg"

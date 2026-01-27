@@ -135,7 +135,17 @@ def main(config_path: str = "config/config.yaml") -> None:
 
     features_df = merged
 
-    manifest["steps"].append({"step": "demographic_join", "status": "ok", "ts_utc": _utc_now()})
+    manifest["steps"].append({
+        "step": "gee_optical_preprocessing_monthly_composites",
+        "status": "ok",
+        "ts_utc": _utc_now(),
+        "sources": {
+            "sentinel2": "COPERNICUS/S2_SR_HARMONIZED",
+            "landsat8_registered": bool(cfg.get("gee", {}).get("landsat8_enabled", False)),
+            "landsat8_collection_id": cfg.get("gee", {}).get("landsat8_collection_id"),
+            "viirs_optional": bool(cfg.get("features", {}).get("include_viirs", False)),
+        },
+    })
 
     # drop join helper column if present
     if "_demo_join_id" in features_df.columns:

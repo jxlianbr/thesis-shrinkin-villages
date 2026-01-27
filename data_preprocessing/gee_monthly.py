@@ -62,6 +62,30 @@ def _ym_list(start: str, end: str) -> List[str]:
             m = 1
     return out
 
+def _read_month_csv(path: str, unit_level: str, unit_id_field: str) -> pd.DataFrame:
+    df = pd.read_csv(
+        path,
+        dtype={unit_id_field: "string", "unit_code": "string", "month": "string"},
+    )
+
+    df[unit_id_field] = df[unit_id_field].astype("string").str.strip()
+    df["unit_code"] = df["unit_code"].astype("string").str.strip()
+
+    if unit_level == "mura":
+        df["unit_code"] = df["unit_code"].str.zfill(5)
+    elif unit_level == "aza":
+        df["unit_code"] = df["unit_code"].str.replace(r"\D", "", regex=True)
+    else:
+        raise ValueError("unit_level must be 'mura' or 'aza'")
+
+    if "month" in df.columns:
+        df["month"] = df["month"].astype("string").str.strip()
+
+    # enforce 1 row per unit-month
+    if unit_id_field in df.columns and "month" in df.columns:
+        df = df.drop_duplicates(subset=[unit_id_field, "month"], keep="first")
+
+    return df
 
 def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     """
@@ -236,7 +260,7 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         out_csv_path = f"outputs/gee/monthly/features_{unit_level}_{ym}.csv"
 
         if skip_existing and os.path.exists(out_csv_path):
-            rows.append(pd.read_csv(out_csv_path))
+            rows.append(_read_month_csv(out_csv_path, unit_level, unit_id_field))
             continue
 
         selectors = [
@@ -265,8 +289,8 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
             asset_id = f"{asset_folder}/{description}"
             _export_fc_to_asset(reduced, asset_id=asset_id, description=description)
             _download_table_asset_csv(asset_id, out_csv_path=out_csv_path, selectors=selectors)
-        if not keep_assets:
-            ee.data.deleteAsset(asset_id)
+            if not keep_assets:
+                ee.data.deleteAsset(asset_id)
 
         elif export_target == "drive":
             task = ee.batch.Export.table.toDrive(
@@ -280,7 +304,14 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
             raise RuntimeError("Exported to Google Drive. Download manually from Drive or implement Drive API download.")
 
 
-    df = pd.read_csv(out_csv_path)
+        df = pd.read_csv(out_csv_path, dtype={"unit_code": "string"})
+        if unit_level == "mura":
+            df["unit_code"] = df["unit_code"].str.zfill(5)
+        elif unit_level == "aza":
+            # keep whatever length you export (typically 9/11); just preserve leading zeros
+            df["unit_code"] = df["unit_code"].str.replace(r"\D", "", regex=True)
+
+    df = _read_month_csv(out_csv_path, unit_level, unit_id_field)
     rows.append(df)
 
     out = pd.concat(rows, ignore_index=True)

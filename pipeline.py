@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import json
-import os
-from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -12,7 +10,7 @@ import yaml
 
 
 def _utc_now() -> str:
-    return datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def load_config(path: str) -> Dict[str, Any]:
@@ -85,7 +83,7 @@ def main(config_path: str = "config/config.yaml") -> None:
     manifest["steps"].append({"step": "aggregation_to_units", "status": "ok", "ts_utc": _utc_now()})
 
     # 6) Demographic join (local, deterministic join by unit_id)
-    demo = pd.read_csv(demographics_path)
+    demo = pd.read_csv(demographics_path, dtype={"unit_code": "string"})
     unit_id_right = cfg["data"]["demographics_unit_id_field"]
 
     if features_df is None:
@@ -139,17 +137,38 @@ def main(config_path: str = "config/config.yaml") -> None:
 
     manifest["steps"].append({"step": "demographic_join", "status": "ok", "ts_utc": _utc_now()})
 
+    # drop join helper column if present
+    if "_demo_join_id" in features_df.columns:
+        features_df = features_df.drop(columns=["_demo_join_id"])
+
+    # collapse duplicated pref_name columns produced by merge
+    if "pref_name_x" in features_df.columns:
+        features_df = features_df.rename(columns={"pref_name_x": "pref_name"})
+    if "pref_name_y" in features_df.columns:
+        features_df = features_df.drop(columns=["pref_name_y"])
+    # final safety: enforce unique unit-month
+    if "month" in features_df.columns:
+        features_df = features_df.drop_duplicates(subset=["unit_id", "month"], keep="first")
+
+
     # 7) Export final features table
     out_csv = cfg["outputs"]["features_table_csv"]
     out_parquet = cfg["outputs"]["features_table_parquet"]
     out_manifest = cfg["outputs"]["run_manifest_json"]
 
     Path(out_csv).parent.mkdir(parents=True, exist_ok=True)
-    merged.to_csv(out_csv, index=False)
-    merged.to_parquet(out_parquet, index=False)
+
+    #Parquet stability: enforce str types for unit_id and pref_name
+    features_df["unit_id"] = features_df["unit_id"].astype("string").str.strip()
+    features_df["unit_code"] = features_df["unit_code"].astype("string").str.strip()
+    if unit_level == "mura":
+        features_df["unit_code"] = features_df["unit_code"].str.zfill(5)
+
+    features_df.to_csv(out_csv, index=False)
+    features_df.to_parquet(out_parquet, index=False)
 
     manifest["finished_utc"] = _utc_now()
-    manifest["row_count"] = int(len(merged))
+    manifest["row_count"] = int(len(features_df))
     write_json(out_manifest, manifest)
 
     print(f"Wrote: {out_csv}")

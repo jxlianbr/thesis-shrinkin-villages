@@ -30,7 +30,7 @@ def _export_fc_to_asset(fc: ee.FeatureCollection, asset_id: str, description: st
     task.start()
     _wait_for_task(task)
 
-def _download_table_asset_csv(asset_id: str, out_csv_path: str, cfg: Dict[str, Any], selectors: List[str] | None = None) -> None:
+def _download_table_asset_csv(cfg: Dict[str, Any],asset_id: str, out_csv_path: str, selectors: List[str] | None = None) -> None:
     """
     Download an EE TABLE asset (FeatureCollection) as CSV without using GCS/Drive.
     If selectors is provided, only those properties are included (excludes .geo).
@@ -177,7 +177,7 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
             .filterBounds(fc)
         )
         #Lightweight access check (fails fast if misconfigured / no permission)
-        _ = l8.first().getInfo()
+        _ = l8.limit(1).size().getInfo()
 
     # NDVI/NDBI on S2 bands (B8 NIR, B4 red, B11 SWIR)
     def add_indices(img):
@@ -305,7 +305,7 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         elif export_target == "asset":
             asset_id = f"{asset_folder}/{description}"
             _export_fc_to_asset(reduced, asset_id=asset_id, description=description)
-            _download_table_asset_csv(asset_id, out_csv_path=out_csv_path, selectors=selectors)
+            _download_table_asset_csv(cfg, asset_id, out_csv_path=out_csv_path, selectors=selectors)
             if not keep_assets:
                 ee.data.deleteAsset(asset_id)
 
@@ -319,14 +319,6 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
             task.start()
             _wait_for_task(task)
             raise RuntimeError("Exported to Google Drive. Download manually from Drive or implement Drive API download.")
-
-
-        df = pd.read_csv(out_csv_path, dtype={"unit_code": "string"})
-        if unit_level == "mura":
-            df["unit_code"] = df["unit_code"].str.zfill(5)
-        elif unit_level == "aza":
-            # keep whatever length you export (typically 9/11); just preserve leading zeros
-            df["unit_code"] = df["unit_code"].str.replace(r"\D", "", regex=True)
 
     df = _read_month_csv(out_csv_path, unit_level, unit_id_field)
     rows.append(df)

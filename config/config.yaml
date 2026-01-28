@@ -18,7 +18,7 @@ gee:
   boundaries_asset_id_aza: "projects/ee-brodnow77/assets/aza_shp"
   export_target: "asset"          # allowed: "asset" | "drive" | "gcs"
   export_asset_folder: "projects/ee-brodnow77/assets/thesis_exports"  # create this folder in EE Assets UI
-  keep_export_assets: true        # false = delete temporary assets after local download
+  keep_export_assets: false        # false = delete temporary assets after local download
   cloudy_pixel_percentage_max: 80
   landsat8_enabled: true
   landsat8_collection_id: "LANDSAT/LC08/C02/T1_L2"
@@ -63,7 +63,7 @@ remote_sensing_sources:
 
 run_mode:
   unit_level: "mura"   # set to "aza" when you want sub-municipal runs
-  fast_dev: true              # true = direct download, no EE export tasks
-  months_override: ["2019-06"]   # small range for iteration
-  unit_sample_n: 10           # 0 or null = all units
+  fast_dev: false              # true = direct download, no EE export tasks
+  months_override: ["2019-06", "2020-06"]   # small range for iteration
+  unit_sample_n: 0           # 0 or null = all units
   skip_existing_month_csv: true

@@ -144,3 +144,38 @@ For reproducibility, complete these fields once per dataset and update if the so
   - a Git commit,
   - an updated manifest (new run),
   - an update to this document if the source/provenance changed.
+
+
+  # Data provenance and licensing (Task 2/3)
+
+## Scope and processing layer
+All large-scale satellite preprocessing and monthly compositing are executed in Google Earth Engine (GEE) to enable scalable processing of multi-year optical time series. The workflow is versioned with Git to ensure reproducibility. :contentReference[oaicite:10]{index=10} :contentReference[oaicite:11]{index=11}
+
+## Remote sensing datasets
+### Sentinel-2 MSI (optical, primary)
+- Role: optical time series for settlement-related indicators and monthly composites.
+- Processing intent: atmospheric correction using Sen2Cor and cloud masking (FMask), followed by resampling to a uniform 10 m resolution and monthly compositing to reduce seasonal effects and outliers. :contentReference[oaicite:12]{index=12}
+
+### Landsat 8 OLI/TIRS (optical, secondary)
+- Role: complementary optical time series alongside Sentinel-2, aggregated into monthly composites and resampled to 10 m for harmonized feature extraction. :contentReference[oaicite:13]{index=13}
+
+### VIIRS-DNB (night lights, optional)
+- Role: monthly aggregation of night light intensity as an indicator of human activity. :contentReference[oaicite:14]{index=14}
+
+## Administrative boundaries and demographics
+- Analysis units: village (mura) and sub-municipal units (aza), aligned to the Statistics Bureau of Japan administrative boundary definitions. :contentReference[oaicite:15]{index=15}
+- Demographic tables: village-level population and age-structure indicators are joined deterministically to the remote-sensing feature table using stable unit identifiers.
+
+## Licensing and compliance
+- Copernicus data usage is handled under the Copernicus data policy; the workflow maintains complete documentation of datasets and usage conditions. :contentReference[oaicite:16]{index=16}
+- The project explicitly tracks compliance with the licensing conditions of Copernicus and USGS data sources. :contentReference[oaicite:17]{index=17} :contentReference[oaicite:18]{index=18}
+- Outputs are aggregated at village level, preventing inference about individual persons. :contentReference[oaicite:19]{index=19}
+
+## Provenance recording
+For each pipeline run:
+- configuration snapshot (YAML),
+- produced monthly feature tables,
+- merged final feature table (CSV/Parquet),
+- run manifest JSON describing the processing steps and enabled sources
+are written to the outputs directory.
+s

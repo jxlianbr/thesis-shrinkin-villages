@@ -141,7 +141,7 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     landsat8_enabled = bool(cfg.get("gee", {}).get("landsat8_enabled", False))
     landsat8_collection_id = cfg.get("gee", {}).get("landsat8_collection_id") or "LANDSAT/LC08/C02/T1_L2"
 
-# Deterministic sampling for fast iteration
+    # Deterministic sampling for fast iteration
     if unit_sample_n > 0:   
         fc = fc.sort(unit_id_field).limit(unit_sample_n)
 
@@ -163,7 +163,7 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     # Basic S2 mask via SCL (keeps non-cloud, non-shadow)
     def mask_s2(img):
         scl = img.select("SCL")
-        keep = scl.eq(4).Or(scl.eq(5)).Or(scl.eq(6)).Or(scl.eq(7)).Or(scl.eq(11))
+        keep = scl.eq(4).Or(scl.eq(5)).Or(scl.eq(6))
         return img.updateMask(keep)
 
     s2 = s2.map(mask_s2)
@@ -178,6 +178,36 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         )
         #Lightweight access check (fails fast if misconfigured / no permission)
         _ = l8.limit(1).size().getInfo()
+
+        # apply masking + band prep (renames to L8_* and optionally adds L8_NDVI, L8_NDBI)
+        l8 = l8.map(mask_l8).map(prep_l8)
+
+    def mask_l8(img):
+        qa = img.select("QA_PIXEL")
+        # Mask out: dilated cloud(1), cirrus(2), cloud(3), cloud shadow(4), snow(5), water(7)
+        mask = (
+            qa.bitwiseAnd(1 << 1).eq(0)  # cloud
+            .And(qa.bitwiseAnd(1 << 2).eq(0))  # cloud shadow
+            .And(qa.bitwiseAnd(1 << 3).eq(0))  # snow
+            .And(qa.bitwiseAnd(1 << 4).eq(0))
+            .And(qa.bitwiseAnd(1 << 5).eq(0))  # water
+            .And(qa.bitwiseAnd(1 << 7).eq(0))  # cirrus
+        )
+        return img.updateMask(mask)
+    
+    def prep_l8(img):
+        #Select SR bands and rename to stable names for merging.
+        #(No unit claims here; goal is consistent numeric ranges and stable schema.)
+        sr = img.select(["SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B6"]).rename(
+            ["L8_B2", "L8_B3", "L8_B4", "L8_B5", "L8_B6"]
+        )
+        if cfg["features"].get("compute_ndvi"):
+            ndvi = sr.normalizedDifference(["L8_B5", "L8_B4"]).rename("L8_NDVI")
+            sr = sr.addBands(ndvi)
+        if cfg["features"].get("compute_ndbi"):
+            ndbi = sr.normalizedDifference(["L8_B6", "L8_B5"]).rename("L8_NDBI")
+            sr = sr.addBands(ndbi)
+        return sr
 
     # NDVI/NDBI on S2 bands (B8 NIR, B4 red, B11 SWIR)
     def add_indices(img):
@@ -242,12 +272,25 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
             select_list.append("NDBI")
 
         comp = comp.select(select_list)
+        comp = comp.resample("bilinear")
 
-        # Reduce to boundaries (mean per band/index)
-        reduced = comp.reduceRegions(
-            collection=fc,
-            reducer=ee.Reducer.mean(),
-            scale=scale_m,
+        # Build a stacked monthly composite (S2 + optional L8) and reduce once
+        img_stack = comp
+
+        if landsat8_enabled and l8 is not None:
+            month_l8 = l8.filterDate(start_m, end_m)
+            n_l8 = month_l8.size().getInfo()
+            if n_l8 == 0:
+                print(f"[WARN] {ym}: Landsat 8 empty after filters; skipping L8 for this month.")
+                continue
+
+            l8_comp = month_l8.median().resample("bilinear")
+            img_stack
+
+        reduced = img_stack.reduceRegions(
+            collection = fc,
+            reducer = ee.Reducer.mean(),
+            scale = 10, # hard-force 10 m sampling
         )
 
         # Optional VIIRS monthly join (mean radiance)
@@ -294,6 +337,13 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
             selectors.append("NDBI")
         if include_viirs:
             selectors.append("viirs_mean")
+        if landsat8_enabled:
+            selectors += ["L8_B2", "L8_B3", "L8_B4", "L8_B5", "L8_B6"]
+            if cfg["features"]["compute_ndvi"]:
+                selectors.append("L8_NDVI")
+            if cfg["features"]["compute_ndbi"]:
+                selectors.append("L8_NDBI")
+
         # Ensure output dir exists
         os.makedirs(os.path.dirname(out_csv_path), exist_ok=True)
 
@@ -319,9 +369,11 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
             task.start()
             _wait_for_task(task)
             raise RuntimeError("Exported to Google Drive. Download manually from Drive or implement Drive API download.")
+        
+        rows.append(_read_month_csv(out_csv_path, unit_level, unit_id_field))
 
-    df = _read_month_csv(out_csv_path, unit_level, unit_id_field)
-    rows.append(df)
+    if not rows:
+        raise RuntimeError("No monthly data was exported; check logs for issues.")
 
     out = pd.concat(rows, ignore_index=True)
 

@@ -101,16 +101,26 @@ For reproducibility, complete these fields once per dataset and update if the so
 - Retrieval date (local time):
 - Notes (registered vs fused):
 
-### VIIRS DNB Monthly (optional)
-- Dataset name:
-- Provider:
-- Access method: GEE
-- GEE collection ID: `NOAA/VIIRS/DNB/MONTHLY_V1/VCMSLCFG`
-- Temporal coverage used (start/end):
-- Spatial scope (prefectures):
-- Aggregation variable(s):
-- Retrieval date (local time):
-- Notes:
+## VIIRS-DNB night lights (monthly)
+
+**Source (GEE collection):**
+- NOAA/VIIRS/DNB/MONTHLY_V1/VCMSLCFG
+
+**Variable used:**
+- `avg_rad` (exported as `viirs_mean`)
+
+**Temporal aggregation:**
+- Monthly: for each month in the analysis period, the VIIRS monthly collection is filtered to that month and aggregated to one image; the per-unit value is computed as the mean radiance within each polygon.
+
+**Spatial aggregation:**
+- Zonal mean per administrative unit (mura/aza polygons) using `reduceRegions` with `Reducer.mean()`.
+- Reduction scale: 500 m.
+
+**Output:**
+- Column: `viirs_mean`
+- Keys: `unit_id`, `month`
+- Joined to the Sentinel-2-derived per-unit table by matching the same unit features.
+
 
 ### Administrative boundaries (mura / aza)
 - Boundary authority alignment: Statistics Bureau of Japan guidance

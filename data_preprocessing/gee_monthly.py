@@ -91,6 +91,33 @@ def _read_month_csv(path: str, unit_level: str, unit_id_field: str) -> pd.DataFr
 
     return df
 
+def _join_props_by_index_keep_all(
+    primary: ee.FeatureCollection,
+    secondary: ee.FeatureCollection,
+    match_key: str,
+) -> ee.FeatureCollection:
+    """
+    Keep ALL features from `primary` and (if a match exists) copy properties from `secondary`.
+    Joins on system:index produced by reduceRegions for the same input FC.
+    """
+    join = ee.Join.saveFirst(match_key)
+    filt = ee.Filter.equals(leftField="system:index", rightField="system:index")
+    joined = join.apply(primary, secondary, filt)
+
+    def merge(f):
+        f = ee.Feature(f)
+        props = ee.Dictionary(
+            ee.Algorithms.If(
+                f.get(match_key),
+                ee.Feature(f.get(match_key)).toDictionary(),
+                ee.Dictionary({}),
+            )
+        )
+        return f.set(props)
+        
+    return ee.FeatureCollection(joined.map(merge))
+
+
 def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     """
     Scalable preprocessing + monthly composites + zonal aggregation in Google Earth Engine.
@@ -168,20 +195,6 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
 
     s2 = s2.map(mask_s2)
 
-    # --- Landsat 8 (registered + accessible via GEE; not fused into outputs yet) ---
-    l8 = None
-    if landsat8_enabled:
-        l8 = (
-            ee.ImageCollection(landsat8_collection_id)
-            .filterDate(start, end)
-            .filterBounds(fc)
-        )
-        #Lightweight access check (fails fast if misconfigured / no permission)
-        _ = l8.limit(1).size().getInfo()
-
-        # apply masking + band prep (renames to L8_* and optionally adds L8_NDVI, L8_NDBI)
-        l8 = l8.map(mask_l8).map(prep_l8)
-
     def mask_l8(img):
         qa = img.select("QA_PIXEL")
         # Mask out: dilated cloud(1), cirrus(2), cloud(3), cloud shadow(4), snow(5), water(7)
@@ -196,8 +209,8 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         return img.updateMask(mask)
     
     def prep_l8(img):
-        #Select SR bands and rename to stable names for merging.
-        #(No unit claims here; goal is consistent numeric ranges and stable schema.)
+    #Select SR bands and rename to stable names for merging.
+    #(No unit claims here; goal is consistent numeric ranges and stable schema.)
         sr = img.select(["SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B6"]).rename(
             ["L8_B2", "L8_B3", "L8_B4", "L8_B5", "L8_B6"]
         )
@@ -208,6 +221,19 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
             ndbi = sr.normalizedDifference(["L8_B6", "L8_B5"]).rename("L8_NDBI")
             sr = sr.addBands(ndbi)
         return sr
+
+    l8 = None
+    if landsat8_enabled:
+        l8 = (
+            ee.ImageCollection(landsat8_collection_id)
+            .filterDate(start, end)
+            .filterBounds(fc)
+        )
+        #Lightweight access check (fails fast if misconfigured / no permission)
+        _ = l8.limit(1).size().getInfo()
+
+        # apply masking + band prep (renames to L8_* and optionally adds L8_NDVI, L8_NDBI)
+        l8 = l8.map(mask_l8).map(prep_l8)
 
     # NDVI/NDBI on S2 bands (B8 NIR, B4 red, B11 SWIR)
     def add_indices(img):
@@ -282,10 +308,12 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
             n_l8 = month_l8.size().getInfo()
             if n_l8 == 0:
                 print(f"[WARN] {ym}: Landsat 8 empty after filters; skipping L8 for this month.")
-                continue
+            else:
+                l8_comp = month_l8.median().resample("bilinear")
+                img_stack = img_stack.addBands(l8_comp)
 
             l8_comp = month_l8.median().resample("bilinear")
-            img_stack
+            img_stack = img_stack.addBands(l8_comp)
 
         reduced = img_stack.reduceRegions(
             collection = fc,

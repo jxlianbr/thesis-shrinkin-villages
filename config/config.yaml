@@ -33,8 +33,12 @@ data:
 features:
   compute_ndvi: true
   compute_ndbi: true
-  compute_glcm: false
+  compute_glcm: true
   include_viirs: true
+  glcm_source_s2: NDBI
+  glcm_source_l8: L8_NDBI
+  glcm_size: 3
+  glcm_metrics: [contrast, entropy, homogeneity]
 
 outputs:
   features_table_csv: "outputs/final/features_table.csv"
@@ -67,3 +71,4 @@ run_mode:
   months_override: ["2019-06", "2019-07", "2019-08", "2020-06"]   # small range for iteration
   unit_sample_n: 10           # 0 or null = all units
   skip_existing_month_csv: false  # if true, skips months that already have CSV exports in GEE assets
+  strict_no_empty_month: true            # if true, errors out on minor issues (e.g., missing data for some months)

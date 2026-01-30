@@ -73,8 +73,27 @@ def main(config_path: str = "config/config.yaml") -> None:
     # 3) Optional VIIRS aggregation is handled inside the same GEE export function when enabled in config
     manifest["steps"].append({"step": "optional_viirs_aggregation", "status": "ok", "ts_utc": _utc_now()})
 
-    # 4) Feature computation (NDVI/NDBI + optional GLCM)
-    # In this backbone, NDVI/NDBI are computed in GEE (scalable). Optional local GLCM can be added later.
+    # 4) Feature computation (NDVI/NDBI + optional local GLCM)
+    # NDVI/NDBI are computed in GEE. GLCM is computed locally for performance.
+    compute_glcm_local = bool(cfg.get("features", {}).get("compute_glcm_local", False))
+
+    if compute_glcm_local and features_df is not None:
+        print("Computing GLCM texture features locally...")
+        from data_preprocessing.compute_glcm_local import run_local_glcm
+
+        features_df = run_local_glcm(
+            cfg=cfg,
+            features_df=features_df,
+            boundaries_path=boundaries_path,
+            rasters_dir=f"{out_dir}/rasters",
+        )
+        manifest["steps"].append({
+            "step": "local_glcm_computation",
+            "status": "ok",
+            "ts_utc": _utc_now(),
+            "metrics": cfg.get("features", {}).get("glcm_metrics", []),
+        })
+
     manifest["steps"].append({"step": "feature_computation", "status": "ok", "ts_utc": _utc_now()})
 
     # 5) Aggregation to village/sub-municipal units

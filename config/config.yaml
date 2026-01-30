@@ -16,12 +16,17 @@ gee:
   scale_m: 10
   boundaries_asset_id_mura: "projects/ee-brodnow77/assets/mura_jis_shp"
   boundaries_asset_id_aza: "projects/ee-brodnow77/assets/aza_shp"
-  export_target: "asset"          # allowed: "asset" | "drive" | "gcs"
+  export_target: "asset"          # allowed: "asset" | "drive"
   export_asset_folder: "projects/ee-brodnow77/assets/thesis_exports"  # create this folder in EE Assets UI
   keep_export_assets: false        # false = delete temporary assets after local download
   cloudy_pixel_percentage_max: 80
   landsat8_enabled: false
   # landsat8_collection_id: "LANDSAT/LC08/C02/T1_L2"
+
+  # Batching settings to avoid GEE computation timeouts
+  use_batching: true              # split features into batches for processing
+  batch_size: 500                 # max features per batch (500 is a safe default)
+  max_retries: 3                  # retry count for transient GEE failures
 
 data:
   boundaries_path: "admin_demographics/boundaries/mura_jis.gpkg"
@@ -38,6 +43,7 @@ features:
   glcm_source_s2: "NDBI"
   glcm_size: 3
   glcm_metrics: [contrast, entropy, homogeneity]
+  glcm_scale: 30                  # scale in meters for GLCM (30 = faster, 10 = native but slower)
 
 outputs:
   features_table_csv: "outputs/final/features_table.csv"
@@ -66,7 +72,7 @@ remote_sensing_sources:
 run_mode:
   unit_level: "mura"   # set to "aza" when you want sub-municipal runs
   fast_dev: false              # true = direct download, no EE export tasks
-  months_override: null   # small range for iteration
-  unit_sample_n: 0           # 0 or null = all units
+  months_override: ["2020-01"]   # small range for iteration
+  unit_sample_n: 50           # 0 or null = all units
   skip_existing_month_csv: true  # if true, skips months that already have CSV exports in GEE assets
   strict_no_empty_month: false            # if true, errors out on minor issues (e.g., missing data for some months)

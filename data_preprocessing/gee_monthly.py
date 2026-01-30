@@ -49,10 +49,6 @@ def _download_table_asset_csv(
     """
     fc = ee.FeatureCollection(asset_id)
 
-    prefs = cfg.get("study_area", {}).get("prefectures", [])
-    if prefs:
-        fc = fc.filter(ee.Filter.inList("pref_name", prefs))
-
     os.makedirs(os.path.dirname(out_csv_path), exist_ok=True)
     filename = os.path.splitext(os.path.basename(out_csv_path))[0]
 
@@ -251,10 +247,6 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     skip_existing = bool(cfg.get("run_mode", {}).get("skip_existing_month_csv", True))
     strict_no_empty = bool(cfg.get("run_mode", {}).get("strict_no_empty_month", True))
 
-    # Sensor enablement
-    landsat8_enabled = bool(cfg.get("gee", {}).get("landsat8_enabled", False))
-    landsat8_collection_id = cfg.get("gee", {}).get("landsat8_collection_id") or "LANDSAT/LC08/C02/T1_L2"
-
     # GLCM / indices settings
     compute_ndvi = bool(cfg.get("features", {}).get("compute_ndvi", True))
     compute_ndbi = bool(cfg.get("features", {}).get("compute_ndbi", True))
@@ -278,6 +270,8 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
         .filterDate(start, end)
         .filterBounds(fc)
+        # Keep only bands needed downstream (cuts median cost dramatically)
+        .select(["B2", "B3", "B4", "B8", "B11", "SCL"])
     )
 
     cmax = cfg.get("gee", {}).get("cloudy_pixel_percentage_max")
@@ -287,8 +281,13 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     # Sentinel-2 mask via SCL: keep vegetation + bare + water
     def mask_s2(img: ee.Image) -> ee.Image:
         scl = img.select("SCL")
-        keep = scl.eq(4).Or(scl.eq(5)).Or(scl.eq(6))
-        return img.updateMask(keep)
+        keep = scl.eq(4).Or(scl.eq(5)).Or(scl.eq(6)).Or(scl.eq(11))  # keep vegetation + bare + water + snow
+        # After masking, drop SCL and any other unuse bands; preserve time metadata
+        return (
+            img.updateMask(keep)
+            .select(["B2", "B3", "B4", "B8", "B11"])
+            .copyProperties(img, img.propertyNames())
+        )
 
     s2 = s2.map(mask_s2)
 
@@ -303,45 +302,7 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     if compute_ndvi or compute_ndbi:
         s2 = s2.map(add_s2_indices)
 
-    # Landsat 8 Collection 2 L2 SR: QA_PIXEL mask + scale SR bands before indices
-    l8 = None
-    if landsat8_enabled:
-        l8 = (
-            ee.ImageCollection(landsat8_collection_id)
-            .filterDate(start, end)
-            .filterBounds(fc)
-        )
-        _ = l8.limit(1).size().getInfo()  # fail fast if inaccessible
-
-        def mask_l8(img: ee.Image) -> ee.Image:
-            qa = img.select("QA_PIXEL")
-            # Bits: 1=dilated cloud, 2=cirrus, 3=cloud, 4=cloud shadow, 5=snow, 7=water
-            m = (
-                qa.bitwiseAnd(1 << 1).eq(0)
-                .And(qa.bitwiseAnd(1 << 2).eq(0))
-                .And(qa.bitwiseAnd(1 << 3).eq(0))
-                .And(qa.bitwiseAnd(1 << 4).eq(0))
-                .And(qa.bitwiseAnd(1 << 5).eq(0))
-                .And(qa.bitwiseAnd(1 << 7).eq(0))
-            )
-            return img.updateMask(m)
-
-        def prep_l8(img: ee.Image) -> ee.Image:
-            sr = (
-                img.select(["SR_B2", "SR_B3", "SR_B4", "SR_B5", "SR_B6"])
-                .multiply(0.0000275)
-                .add(-0.2)
-                .rename(["L8_B2", "L8_B3", "L8_B4", "L8_B5", "L8_B6"])
-            )
-            out = sr
-            if compute_ndvi:
-                out = out.addBands(sr.normalizedDifference(["L8_B5", "L8_B4"]).rename("L8_NDVI"))
-            if compute_ndbi:
-                out = out.addBands(sr.normalizedDifference(["L8_B6", "L8_B5"]).rename("L8_NDBI"))
-            return out
-
-        l8 = l8.map(mask_l8).map(prep_l8)
-
+    
     # VIIRS monthly
     include_viirs = bool(cfg.get("features", {}).get("include_viirs", False))
     viirs = None
@@ -362,17 +323,6 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         end_m = start_m.advance(1, "month")
         return start_m, end_m
 
-    # Precompute placeholder band names for stable schema (L8 only)
-    l8_placeholder_bands: List[str] = []
-    if landsat8_enabled:
-        l8_placeholder_bands = ["L8_B2", "L8_B3", "L8_B4", "L8_B5", "L8_B6"]
-        if compute_ndvi:
-            l8_placeholder_bands.append("L8_NDVI")
-        if compute_ndbi:
-            l8_placeholder_bands.append("L8_NDBI")
-        if compute_glcm:
-            l8_placeholder_bands += [f"{glcm_source_l8}_{m}" for m in glcm_metrics]  # e.g. L8_NDBI_contrast
-
     rows: List[pd.DataFrame] = []
 
     for ym in ym_list:
@@ -380,13 +330,8 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
 
         # --- Sentinel-2 monthly composite ---
         month_s2 = s2.filterDate(start_m, end_m)
-        n_s2 = month_s2.size().getInfo()
-        if n_s2 == 0:
-            print(f"[WARN] {ym}: Sentinel-2 empty after filters; skipping month.")
-            continue
-
-        comp = month_s2.median()
-
+        has_s2 = month_s2.size().gt(0)
+        
         s2_bands = ["B2", "B3", "B4", "B8", "B11"]
         select_list = s2_bands[:]
         if compute_ndvi:
@@ -394,48 +339,34 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         if compute_ndbi:
             select_list.append("NDBI")
 
+        # If a month has no images, use a masked placeholder so the export still runs
+        empty_s2 = _masked_constant_image(select_list)
+        comp = ee.Image(ee.Algorithms.If(has_s2, month_s2.median(), empty_s2))
         comp = comp.select(select_list).resample("bilinear")
-
         if compute_glcm:
-            comp = _add_glcm_texture(
-                comp,
-                src_band=glcm_source_s2,
-                out_prefix=f"S2_{glcm_source_s2}",
-                size=glcm_size,
-                metrics=list(glcm_metrics),
+            out_prefix = f"S2_{glcm_source_s2}"
+            glcm_out_bands = [f"{out_prefix}_{m}" for m in glcm_metrics]
+            comp = ee.Image(
+                ee.Algorithms.If(
+                    has_s2,
+                    _add_glcm_texture(
+                        comp,
+                        src_band=glcm_source_s2,
+                        out_prefix=out_prefix,
+                        size=glcm_size,
+                        metrics=list(glcm_metrics),
+                    ),
+                    _masked_constant_image(select_list + glcm_out_bands),
+                )
             )
 
         img_stack = comp
-
-        # --- Landsat 8 monthly composite (optional) ---
-        if landsat8_enabled:
-            if l8 is None:
-                raise RuntimeError("landsat8_enabled=True but L8 collection is None")
-
-            month_l8 = l8.filterDate(start_m, end_m)
-            n_l8 = month_l8.size().getInfo()
-
-            if n_l8 > 0:
-                l8_comp = month_l8.median().resample("bilinear")
-                if compute_glcm:
-                    l8_comp = _add_glcm_texture(
-                        l8_comp,
-                        src_band=glcm_source_l8,
-                        out_prefix=glcm_source_l8,
-                        size=glcm_size,
-                        metrics=list(glcm_metrics),
-                    )
-                img_stack = img_stack.addBands(l8_comp)
-            else:
-                print(f"[WARN] {ym}: Landsat-8 empty after filters; writing null L8 bands for this month.")
-                if l8_placeholder_bands:
-                    img_stack = img_stack.addBands(_masked_constant_image(l8_placeholder_bands))
 
         # --- Reduce to boundaries (mean per band/index/texture) ---
         reduced = img_stack.reduceRegions(
             collection=fc,
             reducer=ee.Reducer.mean(),
-            scale=10,  # harmonized 10 m sampling
+            scale=int(cfg.get("gee", {}).get("scale_m", 10)),  # harmonized 10 m sampling
         )
 
         # --- Optional VIIRS monthly join (mean radiance) ---
@@ -457,9 +388,16 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
 
             reduced = ee.FeatureCollection(joined.map(merge_props))
 
-        reduced = reduced.map(lambda f: ee.Feature(f).set({"month": ym}))
+        reduced = reduced.map(lambda f: ee.Feature(f).set({"month": ym, "unit_level": unit_level}))
 
-        # ---- Export + download (NO GCS) ----
+        reduced = reduced.map(
+            lambda f: ee.Feature(
+                ee.Feature(f).geometry().centroid(1),
+                ee.Feature(f).toDictionary()
+            )
+        )
+
+        # ---- Export + download (NO GCS) --- 
         description = f"features_{ym}"
         out_csv_path = f"outputs/gee/monthly/features_{unit_level}_{ym}.csv"
 
@@ -485,15 +423,6 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
 
         if include_viirs:
             selectors.append("viirs_mean")
-
-        if landsat8_enabled:
-            selectors += ["L8_B2", "L8_B3", "L8_B4", "L8_B5", "L8_B6"]
-            if compute_ndvi:
-                selectors.append("L8_NDVI")
-            if compute_ndbi:
-                selectors.append("L8_NDBI")
-            if compute_glcm:
-                selectors += [f"{glcm_source_l8}_{m}" for m in glcm_metrics]
 
         os.makedirs(os.path.dirname(out_csv_path), exist_ok=True)
 

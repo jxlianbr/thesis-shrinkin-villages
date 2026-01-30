@@ -67,7 +67,6 @@ def main(config_path: str = "config/config.yaml") -> None:
         from data_preprocessing.gee_monthly import run_gee_monthly_feature_export
 
         features_df = run_gee_monthly_feature_export(cfg)
-        manifest["steps"].append({"step": "gee_optical_preprocessing_monthly_composites", "status": "ok", "ts_utc": _utc_now()})
     else:
         raise RuntimeError("This Task-1 backbone expects GEE enabled for scalable preprocessing.")
 
@@ -91,7 +90,8 @@ def main(config_path: str = "config/config.yaml") -> None:
 
     # Normalize join keys (defensive)
     demo[unit_id_right] = demo[unit_id_right].astype(str).str.strip()
-    features_df["unit_id"] = features_df["unit_id"].astype(str).str.strip()
+    unit_id_left = cfg["data"]["unit_id_field"]
+    features_df[unit_id_left] = features_df[unit_id_left].astype(str).str.strip()
 
     unit_level = cfg.get("run_mode", {}).get("unit_level", "mura")
 
@@ -141,8 +141,6 @@ def main(config_path: str = "config/config.yaml") -> None:
         "ts_utc": _utc_now(),
         "sources": {
             "sentinel2": "COPERNICUS/S2_SR_HARMONIZED",
-            "landsat8_registered": bool(cfg.get("gee", {}).get("landsat8_enabled", False)),
-            "landsat8_collection_id": cfg.get("gee", {}).get("landsat8_collection_id"),
             "viirs_optional": bool(cfg.get("features", {}).get("include_viirs", False)),
         },
     })
@@ -169,7 +167,7 @@ def main(config_path: str = "config/config.yaml") -> None:
     Path(out_csv).parent.mkdir(parents=True, exist_ok=True)
 
     #Parquet stability: enforce str types for unit_id and pref_name
-    features_df["unit_id"] = features_df["unit_id"].astype("string").str.strip()
+    features_df[unit_id_left] = features_df[unit_id_left].astype("string").str.strip()
     features_df["unit_code"] = features_df["unit_code"].astype("string").str.strip()
     if unit_level == "mura":
         features_df["unit_code"] = features_df["unit_code"].str.zfill(5)

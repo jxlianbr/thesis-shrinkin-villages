@@ -1,0 +1,70 @@
+# Golden Sample Configuration
+# Minimal reproducible test: 10 units x 2 months = 20 rows
+# Expected runtime: ~3-5 minutes
+#
+# Usage: python pipeline.py config/config_golden_sample.yaml
+
+project:
+  name: shrinking-villages-japan
+  run_id: "golden_sample"
+  outputs_dir: "outputs/golden_sample"
+
+time:
+  start: "2019-01-01"
+  end: "2020-12-31"
+  composite: "monthly"
+
+gee:
+  enabled: true
+  cloud_project: "ee-brodnow77"
+  export_prefix: "shrinking_villages"
+  scale_m: 50
+  boundaries_asset_id_mura: "projects/ee-brodnow77/assets/mura_jis_shp"
+  boundaries_asset_id_aza: "projects/ee-brodnow77/assets/aza_shp"
+  export_target: "asset"
+  export_asset_folder: "projects/ee-brodnow77/assets/thesis_exports"
+  keep_export_assets: false
+  cloudy_pixel_percentage_max: 80
+  use_batching: true
+  batch_size: 500
+  max_retries: 3
+  max_parallel_months: 2          # Lower for golden sample to reduce GEE load
+
+data:
+  boundaries_path: "admin_demographics/boundaries/mura_jis.gpkg"
+  boundaries_layer: "mura"
+  unit_id_field: "unit_id"
+  demographics_path: "admin_demographics/demographics/village_demographics.csv"
+  demographics_unit_id_field: "unit_id"
+
+features:
+  compute_ndvi: true
+  compute_ndbi: true
+  compute_glcm: false
+  compute_glcm_local: true
+  include_viirs: true
+  glcm_source_s2: "NDBI"
+  glcm_size: 3
+  glcm_metrics: [contrast, entropy, homogeneity]
+  glcm_scale: 100
+
+labels:
+  source: "osm"
+  osm_buildings_path: null        # Will download on first run
+
+outputs:
+  features_table_csv: "outputs/golden_sample/features_table.csv"
+  features_table_parquet: "outputs/golden_sample/features_table.parquet"
+  run_manifest_json: "outputs/golden_sample/run_manifest.json"
+
+study_area:
+  prefectures:
+    - Aomori                      # Single prefecture for faster download
+
+run_mode:
+  unit_level: "mura"
+  fast_dev: false
+  months_override: ["2019-06", "2020-06"]   # 2 months only
+  unit_sample_n: 10                          # First 10 units only
+  skip_existing_month_csv: false             # Always regenerate for testing
+  strict_no_empty_month: false

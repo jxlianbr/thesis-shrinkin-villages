@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Sequence, TypeVar
 import glob
@@ -109,6 +110,50 @@ def _download_table_asset_csv(
         urllib.request.urlretrieve(url, out_csv_path)
 
     _retry_with_backoff(_get_and_download, max_retries=max_retries)
+
+
+def _export_viirs_for_month(
+    viirs: ee.ImageCollection,
+    fc: ee.FeatureCollection,
+    start_m: ee.Date,
+    end_m: ee.Date,
+    ym: str,
+    unit_level: str,
+    out_csv_path: str,
+    asset_folder: str,
+    unit_id_field: str,
+    max_retries: int = 3,
+) -> None:
+    """
+    Export VIIRS radiance separately from S2 features.
+
+    This is done as a separate export to avoid the expensive GEE join operation.
+    The results are merged locally in Python for better performance.
+    """
+    print(f"  Exporting VIIRS for {ym}...")
+    vimg = viirs.filterDate(start_m, end_m).mean()
+    vreduced = vimg.reduceRegions(
+        collection=fc,
+        reducer=ee.Reducer.mean().setOutputs(["viirs_mean"]),
+        scale=500,
+    )
+    vreduced = vreduced.map(lambda f: ee.Feature(f).set({"month": ym, "unit_level": unit_level}))
+
+    selectors = [unit_id_field, "month", "viirs_mean"]
+    description = f"viirs_{ym}"
+    temp_asset_id = f"{asset_folder}/temp_{description}"
+
+    def _do_export():
+        _export_fc_to_asset(vreduced, asset_id=temp_asset_id, description=f"temp_{description}")
+
+    _retry_with_backoff(_do_export, max_retries=max_retries)
+    _download_table_asset_csv({}, temp_asset_id, out_csv_path, selectors=selectors, max_retries=max_retries)
+
+    # Clean up temp asset
+    try:
+        ee.data.deleteAsset(temp_asset_id)
+    except Exception:
+        pass
 
 
 def _batch_feature_collection(fc: ee.FeatureCollection, batch_size: int) -> List[ee.FeatureCollection]:
@@ -324,6 +369,212 @@ def _add_glcm_texture(
 
 
 # ---------------------------
+# Single month processing (for parallel execution)
+# ---------------------------
+
+def _process_single_month(ym: str, ctx: Dict[str, Any]) -> pd.DataFrame | None:
+    """
+    Process a single month's data: composite, reduceRegions, export, and return DataFrame.
+
+    This function is designed to be called from a ThreadPoolExecutor for parallel processing.
+    All required context (collections, settings, etc.) is passed via the ctx dict.
+
+    Args:
+        ym: Year-month string (e.g., "2020-01")
+        ctx: Dictionary containing all shared context (s2, viirs, fc, batches, settings, etc.)
+
+    Returns:
+        DataFrame with processed features for the month, or None on failure
+    """
+    # Unpack context
+    s2 = ctx["s2"]
+    viirs = ctx["viirs"]
+    fc = ctx["fc"]
+    batches = ctx["batches"]
+    unit_level = ctx["unit_level"]
+    unit_id_field = ctx["unit_id_field"]
+    scale_m = ctx["scale_m"]
+    selectors = ctx["selectors"]
+    asset_folder = ctx["asset_folder"]
+    export_target = ctx["export_target"]
+    max_retries = ctx["max_retries"]
+    compute_ndvi = ctx["compute_ndvi"]
+    compute_ndbi = ctx["compute_ndbi"]
+    compute_glcm = ctx["compute_glcm"]
+    glcm_source_s2 = ctx["glcm_source_s2"]
+    glcm_size = ctx["glcm_size"]
+    glcm_metrics = ctx["glcm_metrics"]
+    glcm_scale = ctx["glcm_scale"]
+    include_viirs = ctx["include_viirs"]
+    skip_existing = ctx["skip_existing"]
+    strict_no_empty = ctx["strict_no_empty"]
+    cfg = ctx["cfg"]
+
+    # Parse year-month
+    y, m = map(int, ym.split("-"))
+    start_m = ee.Date.fromYMD(y, m, 1)
+    end_m = start_m.advance(1, "month")
+
+    # Output paths
+    out_csv_path = f"outputs/gee/monthly/features_{unit_level}_{ym}.csv"
+    out_dir = os.path.dirname(out_csv_path)
+
+    # Check if already exists
+    if skip_existing and os.path.exists(out_csv_path):
+        print(f"[{ym}] Skipping (already exists)")
+        return _read_month_csv(out_csv_path, unit_level, unit_id_field)
+
+    print(f"[{ym}] Starting processing...")
+
+    # --- Sentinel-2 monthly composite ---
+    month_s2 = s2.filterDate(start_m, end_m)
+    has_s2 = month_s2.size().gt(0)
+
+    s2_bands = ["B2", "B3", "B4", "B8", "B11"]
+    select_list = s2_bands[:]
+    if compute_ndvi:
+        select_list.append("NDVI")
+    if compute_ndbi:
+        select_list.append("NDBI")
+
+    # If a month has no images, use a masked placeholder so the export still runs
+    empty_s2 = _masked_constant_image(select_list)
+    comp = ee.Image(ee.Algorithms.If(has_s2, month_s2.median(), empty_s2))
+    comp = comp.select(select_list).resample("bilinear")
+
+    if compute_glcm:
+        out_prefix = f"S2_{glcm_source_s2}"
+        glcm_out_bands = [f"{out_prefix}_{m}" for m in glcm_metrics]
+        comp = ee.Image(
+            ee.Algorithms.If(
+                has_s2,
+                _add_glcm_texture(
+                    comp,
+                    src_band=glcm_source_s2,
+                    out_prefix=out_prefix,
+                    size=glcm_size,
+                    metrics=list(glcm_metrics),
+                    glcm_scale=glcm_scale,
+                ),
+                _masked_constant_image(select_list + glcm_out_bands),
+            )
+        )
+
+    img_stack = comp
+
+    os.makedirs(out_dir, exist_ok=True)
+
+    # --- Helper to process a single batch of features (S2 only, no VIIRS) ---
+    def _process_batch(batch_fc: ee.FeatureCollection) -> ee.FeatureCollection:
+        """Reduce image stack to a batch of boundary features (S2 only)."""
+        reduced = img_stack.reduceRegions(
+            collection=batch_fc,
+            reducer=ee.Reducer.mean(),
+            scale=scale_m,
+        )
+        # Add metadata (VIIRS is exported separately and merged locally)
+        reduced = reduced.map(lambda f: ee.Feature(f).set({"month": ym, "unit_level": unit_level}))
+        return reduced
+
+    # --- Helper to export a FeatureCollection to CSV via asset ---
+    def _export_batch_to_csv(batch_reduced: ee.FeatureCollection, batch_csv_path: str, batch_desc: str) -> None:
+        """Export a batch using async asset export (more reliable than getDownloadURL)."""
+        temp_asset_id = f"{asset_folder}/temp_{batch_desc}"
+
+        def _do_export():
+            _export_fc_to_asset(batch_reduced, asset_id=temp_asset_id, description=f"temp_{batch_desc}")
+
+        _retry_with_backoff(_do_export, max_retries=max_retries)
+        _download_table_asset_csv(cfg, temp_asset_id, out_csv_path=batch_csv_path, selectors=selectors, max_retries=max_retries)
+
+        # Clean up temp asset
+        try:
+            ee.data.deleteAsset(temp_asset_id)
+        except Exception:
+            pass  # Ignore cleanup errors
+
+    # --- Process using pre-computed batches ---
+    completed_batches = _get_completed_batches(out_dir, ym, unit_level)
+    print(f"[{ym}] {len(batches)} batches, {len(completed_batches)} already completed")
+
+    for batch_idx, batch_fc in enumerate(batches):
+        if batch_idx in completed_batches:
+            print(f"[{ym}] Batch {batch_idx + 1}/{len(batches)}: skipping (already exists)")
+            continue
+
+        print(f"[{ym}] Batch {batch_idx + 1}/{len(batches)}: processing...")
+        batch_csv_path = os.path.join(out_dir, f"features_{unit_level}_{ym}_batch{batch_idx:03d}.csv")
+        batch_desc = f"features_{ym}_batch{batch_idx:03d}"
+
+        batch_reduced = _process_batch(batch_fc)
+
+        if export_target == "drive":
+            raise RuntimeError("Drive export not supported with batching. Use export_target='asset'.")
+
+        _export_batch_to_csv(batch_reduced, batch_csv_path, batch_desc)
+
+    # Merge all batch CSVs into final monthly CSV (only if we have multiple batches)
+    if len(batches) > 1:
+        _merge_batch_csvs(out_dir, ym, unit_level, out_csv_path)
+
+        # Clean up batch files after successful merge
+        for batch_file in glob.glob(os.path.join(out_dir, f"features_{unit_level}_{ym}_batch*.csv")):
+            try:
+                os.remove(batch_file)
+            except OSError:
+                pass
+    else:
+        # Single batch - just rename the batch file to final name
+        single_batch_path = os.path.join(out_dir, f"features_{unit_level}_{ym}_batch000.csv")
+        if os.path.exists(single_batch_path) and not os.path.exists(out_csv_path):
+            os.rename(single_batch_path, out_csv_path)
+
+    # --- Export VIIRS separately and merge locally ---
+    if include_viirs and viirs is not None:
+        viirs_csv_path = os.path.join(out_dir, f"viirs_{unit_level}_{ym}.csv")
+
+        # Export VIIRS if not already done
+        if not os.path.exists(viirs_csv_path):
+            _export_viirs_for_month(
+                viirs=viirs,
+                fc=fc,
+                start_m=start_m,
+                end_m=end_m,
+                ym=ym,
+                unit_level=unit_level,
+                out_csv_path=viirs_csv_path,
+                asset_folder=asset_folder,
+                unit_id_field=unit_id_field,
+                max_retries=max_retries,
+            )
+
+        # Merge VIIRS into S2 features locally
+        print(f"[{ym}] Merging VIIRS data locally...")
+        s2_df = pd.read_csv(out_csv_path)
+        viirs_df = pd.read_csv(viirs_csv_path)
+        merged = s2_df.merge(
+            viirs_df[[unit_id_field, "viirs_mean"]],
+            on=unit_id_field,
+            how="left"
+        )
+        merged.to_csv(out_csv_path, index=False)
+
+    df = _read_month_csv(out_csv_path, unit_level, unit_id_field)
+
+    if strict_no_empty:
+        req: List[str] = []
+        if compute_ndvi:
+            req.append("NDVI")
+        if compute_ndbi:
+            req.append("NDBI")
+        if compute_glcm:
+            req += [f"S2_{glcm_source_s2}_{m}" for m in glcm_metrics]
+        _assert_month_features_not_all_nan(df, ym, req)
+
+    return df
+
+
+# ---------------------------
 # Main entry
 # ---------------------------
 
@@ -459,12 +710,6 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     # --- Monthly composite + zonal stats ---
     ym_list = months_override if months_override else _ym_list(start, end)
 
-    def month_range(ym: str):
-        y, m = map(int, ym.split("-"))
-        start_m = ee.Date.fromYMD(y, m, 1)
-        end_m = start_m.advance(1, "month")
-        return start_m, end_m
-
     # Pre-compute batches ONCE before the loop (boundaries don't change per month)
     if use_batching:
         batches = _batch_feature_collection(fc, batch_size)
@@ -474,183 +719,71 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     # Hoist scale_m outside inner functions to avoid repeated config lookups
     scale_m = int(cfg.get("gee", {}).get("scale_m", 10))
 
+    # Parallel processing configuration
+    max_parallel_months = int(cfg.get("gee", {}).get("max_parallel_months", 6))
+
+    # Build selectors list (shared by all months)
+    selectors = [
+        unit_id_field,
+        "unit_level",
+        "pref_name",
+        "unit_code",
+        "month",
+        "B2", "B3", "B4", "B8", "B11",
+    ]
+    if compute_ndvi:
+        selectors.append("NDVI")
+    if compute_ndbi:
+        selectors.append("NDBI")
+    if compute_glcm:
+        selectors += [f"S2_{glcm_source_s2}_{m}" for m in glcm_metrics]
+
+    # Package shared context for the month processing function
+    month_context = {
+        "s2": s2,
+        "viirs": viirs,
+        "fc": fc,
+        "batches": batches,
+        "unit_level": unit_level,
+        "unit_id_field": unit_id_field,
+        "scale_m": scale_m,
+        "selectors": selectors,
+        "asset_folder": asset_folder,
+        "export_target": export_target,
+        "max_retries": max_retries,
+        "compute_ndvi": compute_ndvi,
+        "compute_ndbi": compute_ndbi,
+        "compute_glcm": compute_glcm,
+        "glcm_source_s2": glcm_source_s2,
+        "glcm_size": glcm_size,
+        "glcm_metrics": glcm_metrics,
+        "glcm_scale": glcm_scale,
+        "include_viirs": include_viirs,
+        "skip_existing": skip_existing,
+        "strict_no_empty": strict_no_empty,
+        "cfg": cfg,
+    }
+
     rows: List[pd.DataFrame] = []
 
-    for ym in ym_list:
-        start_m, end_m = month_range(ym)
+    # Process months in parallel using ThreadPoolExecutor
+    print(f"\nProcessing {len(ym_list)} months with {max_parallel_months} parallel workers...")
 
-        # --- Sentinel-2 monthly composite ---
-        month_s2 = s2.filterDate(start_m, end_m)
-        has_s2 = month_s2.size().gt(0)
-        
-        s2_bands = ["B2", "B3", "B4", "B8", "B11"]
-        select_list = s2_bands[:]
-        if compute_ndvi:
-            select_list.append("NDVI")
-        if compute_ndbi:
-            select_list.append("NDBI")
+    with ThreadPoolExecutor(max_workers=max_parallel_months) as executor:
+        future_to_ym = {
+            executor.submit(_process_single_month, ym, month_context): ym
+            for ym in ym_list
+        }
 
-        # If a month has no images, use a masked placeholder so the export still runs
-        empty_s2 = _masked_constant_image(select_list)
-        comp = ee.Image(ee.Algorithms.If(has_s2, month_s2.median(), empty_s2))
-        comp = comp.select(select_list).resample("bilinear")
-        if compute_glcm:
-            out_prefix = f"S2_{glcm_source_s2}"
-            glcm_out_bands = [f"{out_prefix}_{m}" for m in glcm_metrics]
-            comp = ee.Image(
-                ee.Algorithms.If(
-                    has_s2,
-                    _add_glcm_texture(
-                        comp,
-                        src_band=glcm_source_s2,
-                        out_prefix=out_prefix,
-                        size=glcm_size,
-                        metrics=list(glcm_metrics),
-                        glcm_scale=glcm_scale,
-                    ),
-                    _masked_constant_image(select_list + glcm_out_bands),
-                )
-            )
-
-        img_stack = comp
-
-        # ---- Export + download (NO GCS) ---
-        description = f"features_{ym}"
-        out_csv_path = f"outputs/gee/monthly/features_{unit_level}_{ym}.csv"
-        out_dir = os.path.dirname(out_csv_path)
-
-        if skip_existing and os.path.exists(out_csv_path):
-            print(f"Skipping {ym} (already exists)")
-            df = _read_month_csv(out_csv_path, unit_level, unit_id_field)
-            rows.append(df)
-            continue
-
-        selectors = [
-            unit_id_field,
-            "unit_level",
-            "pref_name",
-            "unit_code",
-            "month",
-            "B2", "B3", "B4", "B8", "B11",
-        ]
-        if compute_ndvi:
-            selectors.append("NDVI")
-        if compute_ndbi:
-            selectors.append("NDBI")
-        if compute_glcm:
-            selectors += [f"S2_{glcm_source_s2}_{m}" for m in glcm_metrics]
-
-        if include_viirs:
-            selectors.append("viirs_mean")
-
-        os.makedirs(out_dir, exist_ok=True)
-
-        # --- Helper to process a single batch of features ---
-        def _process_batch(batch_fc: ee.FeatureCollection) -> ee.FeatureCollection:
-            """Reduce image stack to a batch of boundary features."""
-            reduced = img_stack.reduceRegions(
-                collection=batch_fc,
-                reducer=ee.Reducer.mean(),
-                scale=scale_m,
-            )
-
-            # Optional VIIRS join
-            if include_viirs and viirs is not None:
-                vimg = viirs.filterDate(start_m, end_m).mean()
-                vreduced = vimg.reduceRegions(
-                    collection=batch_fc,
-                    reducer=ee.Reducer.mean().setOutputs(["viirs_mean"]),
-                    scale=500,
-                )
-                join = ee.Join.inner()
-                filt = ee.Filter.equals(leftField="system:index", rightField="system:index")
-                joined = join.apply(reduced, vreduced, filt)
-
-                def merge_props(f):
-                    left = ee.Feature(f.get("primary"))
-                    right = ee.Feature(f.get("secondary"))
-                    return left.copyProperties(right, right.propertyNames())
-
-                reduced = ee.FeatureCollection(joined.map(merge_props))
-
-            # Add metadata
-            reduced = reduced.map(lambda f: ee.Feature(f).set({"month": ym, "unit_level": unit_level}))
-
-            # Convert to centroids
-            reduced = reduced.map(
-                lambda f: ee.Feature(
-                    ee.Feature(f).geometry().centroid(1),
-                    ee.Feature(f).toDictionary()
-                )
-            )
-            return reduced
-
-        # --- Helper to export a FeatureCollection to CSV via asset ---
-        def _export_batch_to_csv(batch_reduced: ee.FeatureCollection, batch_csv_path: str, batch_desc: str) -> None:
-            """Export a batch using async asset export (more reliable than getDownloadURL)."""
-            temp_asset_id = f"{asset_folder}/temp_{batch_desc}"
-
-            def _do_export():
-                _export_fc_to_asset(batch_reduced, asset_id=temp_asset_id, description=f"temp_{batch_desc}")
-
-            _retry_with_backoff(_do_export, max_retries=max_retries)
-            _download_table_asset_csv(cfg, temp_asset_id, out_csv_path=batch_csv_path, selectors=selectors, max_retries=max_retries)
-
-            # Clean up temp asset
+        for future in as_completed(future_to_ym):
+            ym = future_to_ym[future]
             try:
-                ee.data.deleteAsset(temp_asset_id)
-            except Exception:
-                pass  # Ignore cleanup errors
-
-        # --- Process using pre-computed batches ---
-        completed_batches = _get_completed_batches(out_dir, ym, unit_level)
-        print(f"Processing {ym}: {len(batches)} batches, {len(completed_batches)} already completed")
-
-        for batch_idx, batch_fc in enumerate(batches):
-            if batch_idx in completed_batches:
-                print(f"  Batch {batch_idx + 1}/{len(batches)}: skipping (already exists)")
-                continue
-
-            print(f"  Batch {batch_idx + 1}/{len(batches)}: processing...")
-            batch_csv_path = os.path.join(out_dir, f"features_{unit_level}_{ym}_batch{batch_idx:03d}.csv")
-            batch_desc = f"features_{ym}_batch{batch_idx:03d}"
-
-            batch_reduced = _process_batch(batch_fc)
-
-            if export_target == "drive":
-                raise RuntimeError("Drive export not supported with batching. Use export_target='asset'.")
-
-            _export_batch_to_csv(batch_reduced, batch_csv_path, batch_desc)
-
-        # Merge all batch CSVs into final monthly CSV (only if we have multiple batches)
-        if len(batches) > 1:
-            _merge_batch_csvs(out_dir, ym, unit_level, out_csv_path)
-
-            # Clean up batch files after successful merge
-            for batch_file in glob.glob(os.path.join(out_dir, f"features_{unit_level}_{ym}_batch*.csv")):
-                try:
-                    os.remove(batch_file)
-                except OSError:
-                    pass
-        else:
-            # Single batch - just rename the batch file to final name
-            single_batch_path = os.path.join(out_dir, f"features_{unit_level}_{ym}_batch000.csv")
-            if os.path.exists(single_batch_path) and not os.path.exists(out_csv_path):
-                os.rename(single_batch_path, out_csv_path)
-
-        df = _read_month_csv(out_csv_path, unit_level, unit_id_field)
-
-        if strict_no_empty:
-            req: List[str] = []
-            if compute_ndvi:
-                req.append("NDVI")
-            if compute_ndbi:
-                req.append("NDBI")
-            if compute_glcm:
-                req += [f"S2_{glcm_source_s2}_{m}" for m in glcm_metrics]
-            _assert_month_features_not_all_nan(df, ym, req)
-
-        rows.append(df)
+                df = future.result()
+                if df is not None:
+                    rows.append(df)
+                print(f"✓ Completed: {ym}")
+            except Exception as e:
+                print(f"✗ Failed: {ym} - {e}")
 
     if not rows:
         raise RuntimeError("No monthly data was exported; check logs for issues.")

@@ -96,6 +96,29 @@ def main(config_path: str = "config/config.yaml") -> None:
 
     manifest["steps"].append({"step": "feature_computation", "status": "ok", "ts_utc": _utc_now()})
 
+    # 4b) OSM label features (building footprints)
+    include_osm_labels = cfg.get("labels", {}).get("source") == "osm"
+    if include_osm_labels and features_df is not None:
+        print("Computing OSM building features...")
+        import geopandas as gpd
+        from data_preprocessing.osm_labels import run_osm_labels
+
+        units_gdf = gpd.read_file(boundaries_path)
+        osm_df = run_osm_labels(cfg, units_gdf, f"{out_dir}/osm")
+
+        unit_id_field = cfg["data"]["unit_id_field"]
+        features_df = features_df.merge(
+            osm_df[[unit_id_field, "osm_built_area", "osm_building_count", "osm_built_ratio"]],
+            on=unit_id_field,
+            how="left"
+        )
+        manifest["steps"].append({
+            "step": "osm_label_computation",
+            "status": "ok",
+            "ts_utc": _utc_now(),
+            "source": "OpenStreetMap building footprints",
+        })
+
     # 5) Aggregation to village/sub-municipal units
     # In this backbone, aggregation is done in GEE via reduceRegions; table is already at unit level.
     manifest["steps"].append({"step": "aggregation_to_units", "status": "ok", "ts_utc": _utc_now()})
@@ -204,4 +227,6 @@ def main(config_path: str = "config/config.yaml") -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    config_path = sys.argv[1] if len(sys.argv) > 1 else "config/config.yaml"
+    main(config_path)

@@ -233,20 +233,39 @@ def download_monthly_raster_from_gee(
     else:
         ee.Initialize()
 
-    # Get study area bounds
-    prefs = cfg.get("study_area", {}).get("prefectures", [])
-    unit_level = cfg.get("run_mode", {}).get("unit_level", "mura")
+    # Check if GLCM should be restricted to golden AOI
+    glcm_restrict = cfg.get("features", {}).get("glcm_restrict_to_golden", False)
+    aoi_cfg = cfg.get("aoi", {})
 
-    if unit_level == "mura":
-        boundaries_asset = cfg["gee"]["boundaries_asset_id_mura"]
-    else:
-        boundaries_asset = cfg["gee"]["boundaries_asset_id_aza"]
+    if glcm_restrict and aoi_cfg:
+        # Always use golden AOI for raster clipping, even in full mode
+        aoi_golden_asset = aoi_cfg.get("aoi_golden_asset_id")
+        if aoi_golden_asset:
+            try:
+                aoi_fc = ee.FeatureCollection(aoi_golden_asset)
+                bounds = aoi_fc.geometry().bounds()
+                print(f"  Using golden AOI for raster bounds: {aoi_golden_asset}")
+            except Exception as e:
+                print(f"  Warning: Could not load golden AOI {aoi_golden_asset}: {e}")
+                glcm_restrict = False  # Fall back to full bounds
+        else:
+            glcm_restrict = False
 
-    fc = ee.FeatureCollection(boundaries_asset)
-    if prefs:
-        fc = fc.filter(ee.Filter.inList("pref_name", prefs))
+    if not glcm_restrict:
+        # Use boundary FC for bounds (original behavior)
+        prefs = cfg.get("study_area", {}).get("prefectures", [])
+        unit_level = cfg.get("run_mode", {}).get("unit_level", "mura")
 
-    bounds = fc.geometry().bounds()
+        if unit_level == "mura":
+            boundaries_asset = cfg["gee"]["boundaries_asset_id_mura"]
+        else:
+            boundaries_asset = cfg["gee"]["boundaries_asset_id_aza"]
+
+        fc = ee.FeatureCollection(boundaries_asset)
+        if prefs:
+            fc = fc.filter(ee.Filter.inList("pref_name", prefs))
+
+        bounds = fc.geometry().bounds()
 
     # Parse year-month
     y, m = map(int, ym.split("-"))
@@ -325,6 +344,18 @@ def run_local_glcm(
     prefs = cfg.get("study_area", {}).get("prefectures", [])
     if prefs and "pref_name" in boundaries.columns:
         boundaries = boundaries[boundaries["pref_name"].isin(prefs)]
+
+    # Check if GLCM should be restricted to golden AOI units
+    glcm_restrict = cfg.get("features", {}).get("glcm_restrict_to_golden", False)
+    aoi_cfg = cfg.get("aoi", {})
+
+    if glcm_restrict and aoi_cfg:
+        golden_unit_ids = aoi_cfg.get("golden_unit_ids", [])
+        if golden_unit_ids:
+            # Filter boundaries to only golden units
+            original_count = len(boundaries)
+            boundaries = boundaries[boundaries["unit_id"].isin(golden_unit_ids)]
+            print(f"  Restricting GLCM to {len(boundaries)} golden units (from {original_count})")
 
     # Get months to process
     if months is None:

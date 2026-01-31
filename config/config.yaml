@@ -36,6 +36,7 @@ features:
   compute_ndbi: true
   compute_glcm: false             # DISABLED in GEE (too expensive)
   compute_glcm_local: true        # Compute GLCM locally after GEE export
+  glcm_restrict_to_golden: true   # Only download GLCM rasters for golden AOI
   include_viirs: true
   glcm_source_s2: "NDBI"
   glcm_size: 3
@@ -51,11 +52,33 @@ outputs:
   features_table_csv: "outputs/final/features_table.csv"
   features_table_parquet: "outputs/final/features_table.parquet"
   run_manifest_json: "outputs/final/run_manifest.json"
+  export_map_rasters: true        # Export visualization rasters for AOI_GOLDEN
+  map_rasters_dir: "outputs/rasters/map_figures"
 
 study_area:
   prefectures:
     - Aomori
     - Akita
+
+aoi:
+  mode: "full"  # "full" for production, "golden" for validation
+  aoi_full_path: "admin_demographics/aoi/aoi_full.gpkg"
+  aoi_golden_path: "admin_demographics/aoi/aoi_golden.gpkg"
+  aoi_full_asset_id: "projects/ee-brodnow77/assets/aoi_full"
+  aoi_golden_asset_id: "projects/ee-brodnow77/assets/aoi_golden"
+  golden_unit_ids:
+    # Aomori (5 units, 52-887 km2, north-to-south spread)
+    - "mura:Aomori:02423"  # 52 km2, northernmost
+    - "mura:Aomori:02387"  # 216 km2
+    - "mura:Aomori:02201"  # 887 km2, largest
+    - "mura:Aomori:02405"  # 84 km2
+    - "mura:Aomori:02443"  # 242 km2, southernmost
+    # Akita (5 units, 18-1093 km2, north-to-south spread)
+    - "mura:Akita:05303"   # 202 km2, northernmost
+    - "mura:Akita:05202"   # 444 km2
+    - "mura:Akita:05363"   # 18 km2, smallest
+    - "mura:Akita:05215"   # 1093 km2, largest
+    - "mura:Akita:05207"   # 790 km2, southernmost
 
 run_mode:
   unit_level: "mura"              # "mura" or "aza"

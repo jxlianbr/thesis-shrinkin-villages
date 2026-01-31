@@ -625,6 +625,28 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     if prefs:
         fc = fc.filter(ee.Filter.inList("pref_name", prefs))
 
+    # --- Load AOI for satellite image filtering ---
+    # AOI provides a single geometry for efficient filterBounds on image collections
+    aoi_cfg = cfg.get("aoi", {})
+    aoi_mode = aoi_cfg.get("mode", "full")
+    aoi_geometry = None
+
+    if aoi_cfg:
+        aoi_asset_key = f"aoi_{aoi_mode}_asset_id"
+        aoi_asset_id = aoi_cfg.get(aoi_asset_key)
+        if aoi_asset_id:
+            try:
+                aoi_fc = ee.FeatureCollection(aoi_asset_id)
+                aoi_geometry = aoi_fc.geometry()
+                print(f"Loaded AOI ({aoi_mode}): {aoi_asset_id}")
+            except Exception as e:
+                print(f"Warning: Could not load AOI asset {aoi_asset_id}: {e}")
+                print("Falling back to boundary FC geometry for filterBounds")
+
+    # Fallback: use boundary FC geometry if AOI not available
+    if aoi_geometry is None:
+        aoi_geometry = fc.geometry()
+
     # --- run_mode knobs ---
     fast_dev = bool(cfg.get("run_mode", {}).get("fast_dev", False))
     months_override = cfg.get("run_mode", {}).get("months_override")
@@ -662,7 +684,7 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     s2 = (
         ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
         .filterDate(start, end)
-        .filterBounds(fc)
+        .filterBounds(aoi_geometry)  # Use AOI geometry for efficient filtering
         # Keep only bands needed downstream (cuts median cost dramatically)
         .select(["B2", "B3", "B4", "B8", "B11", "SCL"])
     )
@@ -703,7 +725,7 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         viirs = (
             ee.ImageCollection("NOAA/VIIRS/DNB/MONTHLY_V1/VCMSLCFG")
             .filterDate(start, end)
-            .filterBounds(fc)
+            .filterBounds(aoi_geometry)  # Use AOI geometry for efficient filtering
             .select(["avg_rad"], ["VIIRS_avg_rad"])
         )
 
@@ -744,6 +766,8 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         "viirs": viirs,
         "fc": fc,
         "batches": batches,
+        "aoi_geometry": aoi_geometry,
+        "aoi_mode": aoi_mode,
         "unit_level": unit_level,
         "unit_id_field": unit_id_field,
         "scale_m": scale_m,
@@ -796,3 +820,114 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         )
 
     return out
+
+
+def export_map_rasters(
+    cfg: Dict[str, Any],
+    output_dir: str,
+    months: List[str] | None = None,
+) -> None:
+    """
+    Export visualization-ready rasters for AOI_GOLDEN.
+
+    This function exports NDVI and NDBI composites as GeoTIFFs for map figures.
+    Rasters are clipped to the golden AOI for visualization purposes.
+
+    Args:
+        cfg: Configuration dictionary
+        output_dir: Directory to save raster files
+        months: List of year-month strings to export (None = use config months_override or first/last month)
+    """
+    # Initialize EE
+    cloud_project = (cfg.get("gee", {}).get("cloud_project") or "").strip()
+    if cloud_project and not cloud_project.startswith("YOUR_"):
+        ee.Initialize(project=cloud_project)
+    else:
+        ee.Initialize()
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Get golden AOI
+    aoi_cfg = cfg.get("aoi", {})
+    aoi_golden_asset = aoi_cfg.get("aoi_golden_asset_id")
+
+    if not aoi_golden_asset:
+        print("Warning: No AOI_GOLDEN asset configured. Skipping map raster export.")
+        return
+
+    try:
+        aoi_fc = ee.FeatureCollection(aoi_golden_asset)
+        aoi_bounds = aoi_fc.geometry().bounds()
+        print(f"Loaded AOI_GOLDEN: {aoi_golden_asset}")
+    except Exception as e:
+        print(f"Error loading AOI_GOLDEN {aoi_golden_asset}: {e}")
+        return
+
+    # Determine months to export
+    if months is None:
+        months_override = cfg.get("run_mode", {}).get("months_override")
+        if months_override:
+            months = months_override
+        else:
+            # Default: first and last month from time range
+            start = cfg["time"]["start"]
+            end = cfg["time"]["end"]
+            all_months = _ym_list(start, end)
+            months = [all_months[0], all_months[-1]] if len(all_months) > 1 else all_months
+
+    scale = cfg.get("features", {}).get("glcm_scale", 30)
+    cmax = cfg.get("gee", {}).get("cloudy_pixel_percentage_max", 80)
+
+    for ym in months:
+        print(f"Exporting map rasters for {ym}...")
+
+        # Parse year-month
+        y, m = map(int, ym.split("-"))
+        start_date = ee.Date.fromYMD(y, m, 1)
+        end_date = start_date.advance(1, "month")
+
+        # Get Sentinel-2 collection
+        s2 = (
+            ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+            .filterDate(start_date, end_date)
+            .filterBounds(aoi_bounds)
+            .select(["B2", "B3", "B4", "B8", "B11", "SCL"])
+            .filter(ee.Filter.lte("CLOUDY_PIXEL_PERCENTAGE", float(cmax)))
+        )
+
+        # Apply cloud mask
+        def mask_s2(img: ee.Image) -> ee.Image:
+            scl = img.select("SCL")
+            keep = scl.eq(4).Or(scl.eq(5)).Or(scl.eq(6)).Or(scl.eq(11))
+            return img.updateMask(keep).select(["B2", "B3", "B4", "B8", "B11"])
+
+        s2 = s2.map(mask_s2)
+
+        # Create median composite
+        composite = s2.median()
+
+        # Add NDVI and NDBI
+        ndvi = composite.normalizedDifference(["B8", "B4"]).rename("NDVI")
+        ndbi = composite.normalizedDifference(["B11", "B8"]).rename("NDBI")
+
+        # Export each band
+        for band_name, band_img in [("NDVI", ndvi), ("NDBI", ndbi)]:
+            out_path = os.path.join(output_dir, f"{band_name}_{ym}.tif")
+
+            if os.path.exists(out_path):
+                print(f"  Skipping {band_name} (already exists)")
+                continue
+
+            try:
+                url = band_img.getDownloadURL({
+                    "name": f"{band_name}_{ym}",
+                    "scale": scale,
+                    "region": aoi_bounds,
+                    "format": "GEO_TIFF",
+                })
+                urllib.request.urlretrieve(url, out_path)
+                print(f"  Exported: {out_path}")
+            except Exception as e:
+                print(f"  Failed to export {band_name}: {e}")
+
+    print(f"Map raster export complete. Files in: {output_dir}")

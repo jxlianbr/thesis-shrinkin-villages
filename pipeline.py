@@ -57,6 +57,25 @@ def main(config_path: str = "config/config.yaml") -> None:
     if not Path(demographics_path).exists():
         raise FileNotFoundError(f"Missing demographics file: {demographics_path}")
 
+    # Validate AOI files if AOI config is present
+    aoi_cfg = cfg.get("aoi", {})
+    aoi_mode = aoi_cfg.get("mode", "full")
+    aoi_path = None
+
+    if aoi_cfg:
+        aoi_path_key = f"aoi_{aoi_mode}_path"
+        aoi_path = aoi_cfg.get(aoi_path_key)
+        if aoi_path and not Path(aoi_path).exists():
+            print(f"Warning: AOI file not found: {aoi_path}. Run build_aoi.py first.")
+            print("Continuing without AOI validation (will use fallback in GEE processing)")
+        elif aoi_path:
+            print(f"Using AOI ({aoi_mode}): {aoi_path}")
+
+    manifest["aoi"] = {
+        "mode": aoi_mode,
+        "path": aoi_path,
+    }
+
     manifest["steps"].append({"step": "data_acquisition_hooks", "status": "ok", "ts_utc": _utc_now()})
 
     # 2) Optical preprocessing + monthly composites (GEE)
@@ -95,6 +114,27 @@ def main(config_path: str = "config/config.yaml") -> None:
         })
 
     manifest["steps"].append({"step": "feature_computation", "status": "ok", "ts_utc": _utc_now()})
+
+    # 4a) Export map rasters for AOI_GOLDEN (optional)
+    export_map_rasters = cfg.get("outputs", {}).get("export_map_rasters", False)
+    if export_map_rasters:
+        print("Exporting map rasters for visualization...")
+        from data_preprocessing.gee_monthly import export_map_rasters as do_export_map_rasters
+
+        map_rasters_dir = cfg.get("outputs", {}).get("map_rasters_dir", f"{out_dir}/rasters/map_figures")
+        months_override = cfg.get("run_mode", {}).get("months_override")
+
+        do_export_map_rasters(
+            cfg=cfg,
+            output_dir=map_rasters_dir,
+            months=months_override,
+        )
+        manifest["steps"].append({
+            "step": "map_raster_export",
+            "status": "ok",
+            "ts_utc": _utc_now(),
+            "output_dir": map_rasters_dir,
+        })
 
     # 4b) OSM label features (building footprints)
     include_osm_labels = cfg.get("labels", {}).get("source") == "osm"

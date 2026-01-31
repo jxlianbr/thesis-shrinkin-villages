@@ -1,0 +1,28 @@
+{
+  "created_utc": "2026-01-31T10:27:14Z",
+  "source_boundaries": "admin_demographics/boundaries/mura_jis.gpkg",
+  "aoi_full": {
+    "path": "admin_demographics/aoi/aoi_full.gpkg",
+    "prefectures": [
+      "Aomori",
+      "Akita"
+    ],
+    "unit_count": 65
+  },
+  "aoi_golden": {
+    "path": "admin_demographics/aoi/aoi_golden.gpkg",
+    "unit_ids": [
+      "mura:Aomori:02423",
+      "mura:Aomori:02387",
+      "mura:Aomori:02201",
+      "mura:Aomori:02405",
+      "mura:Aomori:02443",
+      "mura:Akita:05303",
+      "mura:Akita:05202",
+      "mura:Akita:05363",
+      "mura:Akita:05215",
+      "mura:Akita:05207"
+    ],
+    "unit_count": 10
+  }
+}

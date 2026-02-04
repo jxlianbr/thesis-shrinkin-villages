@@ -805,9 +805,9 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
                 df = future.result()
                 if df is not None:
                     rows.append(df)
-                print(f"✓ Completed: {ym}")
+                print(f"[OK] Completed: {ym}")
             except Exception as e:
-                print(f"✗ Failed: {ym} - {e}")
+                print(f"[FAIL] Failed: {ym} - {e}")
 
     if not rows:
         raise RuntimeError("No monthly data was exported; check logs for issues.")

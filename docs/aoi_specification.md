@@ -81,6 +81,8 @@ python admin_demographics/build_aoi.py config/config.yaml
 python admin_demographics/upload_aoi_to_gee.py config/config.yaml
 ```
 
+**Note**: AOI_FULL is simplified during upload (tolerance ~100m) to stay under GEE's 10MB payload limit. This simplification is acceptable for satellite image clipping purposes.
+
 ### Configuration
 
 The pipeline is controlled via the `aoi` section in config:

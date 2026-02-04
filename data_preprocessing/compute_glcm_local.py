@@ -276,7 +276,7 @@ def download_monthly_raster_from_gee(
     s2 = (
         ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
         .filterDate(start_date, end_date)
-        .filterBounds(fc)
+        .filterBounds(bounds)  # Use bounds (works for both golden AOI and full boundary modes)
         .select(["B8", "B11"])  # Bands needed for NDBI
     )
 

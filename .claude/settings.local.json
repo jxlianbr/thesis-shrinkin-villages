@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(.venvScriptspython admin_demographics/upload_aoi_to_gee.py config/config.yaml)",
+      "Bash(.venv/Scripts/python.exe:*)"
     ]
   }
 }

@@ -1,0 +1,8 @@
+type,feature,unit_id,month,detail
+glcm_available,S2_NDBI_contrast/entropy/homogeneity,,,"GLCM texture features recomputed for all 65 units — NaN rate now matches spectral bands (~5.6%, cloud cover)"
+high_outlier_rate,osm_built_area,,,15.38% outlier rate
+high_outlier_rate,osm_building_count,,,15.38% outlier rate
+high_outlier_rate,S2_NDBI_entropy,,,15.38% outlier rate
+high_outlier_rate,S2_NDBI_homogeneity,,,14.48% outlier rate
+high_outlier_rate,B3,,,12.88% outlier rate
+temporal_gaps,,,,65 units have temporal gaps

@@ -1,0 +1,279 @@
+# =============================================================================
+# Classification Pipeline Configuration — Shrinking Villages
+# =============================================================================
+
+# --- Data ---
+data:
+  input_path: "preprocessing/outputs/classification_ready.parquet"
+  feature_metadata_path: "preprocessing/outputs/feature_metadata.csv"
+
+# --- Output directories ---
+output:
+  base_dir: "classification/outputs"
+  figures_dir: "classification/outputs/figures"
+  tables_dir: "classification/outputs/tables"
+  models_dir: "classification/outputs/models"
+  reports_dir: "classification/outputs/reports"
+
+# --- Column roles ---
+columns:
+  identifiers: [unit_id, pref_name]
+  target: "shrinkage_class"
+  target_code: "shrinkage_code"
+  class_labels: ["stable", "shrinking", "severely_shrinking"]
+  class_codes: [0, 1, 2]
+
+# --- Feature groups (all 30 features organized by domain) ---
+feature_groups:
+  spectral:
+    - B4_mean
+    - B4_std
+    - B8_mean
+    - B8_std
+    - B11_mean
+    - B11_std
+  vegetation:
+    - NDVI_mean
+    - NDVI_std
+    - NDVI_slope
+    - NDVI_seasonal_amp
+    - NDBI_mean
+    - NDBI_std
+    - NDBI_slope
+    - NDBI_seasonal_amp
+  nightlights:
+    - viirs_mean_mean
+    - viirs_mean_std
+    - viirs_mean_slope
+  texture:
+    - S2_NDBI_contrast_mean
+    - S2_NDBI_contrast_std
+    - S2_NDBI_entropy_mean
+    - S2_NDBI_entropy_std
+  demographic:
+    - pop_total
+    - age_u15
+    - age_65_plus
+  osm:
+    - osm_built_area
+    - osm_built_ratio
+  derived:
+    - elderly_ratio
+    - aging_index
+    - youth_ratio
+    - household_size
+
+# --- Feature leakage analysis ---
+# Target (shrinkage_class) is derived from elderly_ratio thresholds (0.37 / 0.42).
+# elderly_ratio, aging_index, youth_ratio are deterministic functions of the target.
+leakage:
+  leaky_features: [elderly_ratio, aging_index, youth_ratio]
+  partially_leaky_features: [age_65_plus, age_u15, pop_total]
+  experiments:
+    all_features: null                # Use all 30 features (reference only — leakage present)
+    no_leaky:                         # Drop deterministic functions of target
+      - elderly_ratio
+      - aging_index
+      - youth_ratio
+    no_demographic:                   # Drop all demographic components
+      - elderly_ratio
+      - aging_index
+      - youth_ratio
+      - age_65_plus
+      - age_u15
+      - pop_total
+      - household_size
+    rs_only:                          # Remote sensing features only — core thesis question
+      - elderly_ratio
+      - aging_index
+      - youth_ratio
+      - age_65_plus
+      - age_u15
+      - pop_total
+      - household_size
+      - osm_built_area
+      - osm_built_ratio
+  primary_experiment: "no_leaky"
+
+# --- Feature selection (diagnostic only — no filtering) ---
+feature_selection:
+  select_k_best:
+    enabled: true
+    k: 15
+    score_func: "f_classif"           # ANOVA F-statistic
+  pca:
+    enabled: true
+    variance_threshold: 0.95          # Components needed for 95% variance
+
+# --- Cross-validation ---
+cross_validation:
+  strategy: "repeated_stratified_kfold"
+  n_splits: 5
+  n_repeats: 5
+  random_state: 42
+  loo_check:
+    enabled: true
+    models: [logistic_regression, random_forest, svm_linear]
+
+# --- Models ---
+models:
+  # Baselines
+  dummy_most_frequent:
+    enabled: true
+    class: "sklearn.dummy.DummyClassifier"
+    params:
+      strategy: "most_frequent"
+    is_baseline: true
+
+  dummy_stratified:
+    enabled: true
+    class: "sklearn.dummy.DummyClassifier"
+    params:
+      strategy: "stratified"
+      random_state: 42
+    is_baseline: true
+
+  # Linear
+  logistic_regression:
+    enabled: true
+    class: "sklearn.linear_model.LogisticRegression"
+    params:
+      C: 1.0
+      penalty: "l2"
+      solver: "lbfgs"
+      multi_class: "multinomial"
+      max_iter: 1000
+      random_state: 42
+
+  # SVM
+  svm_linear:
+    enabled: true
+    class: "sklearn.svm.SVC"
+    params:
+      kernel: "linear"
+      C: 1.0
+      probability: true
+      random_state: 42
+
+  svm_rbf:
+    enabled: true
+    class: "sklearn.svm.SVC"
+    params:
+      kernel: "rbf"
+      C: 1.0
+      gamma: "scale"
+      probability: true
+      random_state: 42
+
+  # Tree-based
+  random_forest:
+    enabled: true
+    class: "sklearn.ensemble.RandomForestClassifier"
+    params:
+      n_estimators: 200
+      min_samples_leaf: 3
+      max_features: "sqrt"
+      random_state: 42
+      n_jobs: -1
+
+  gradient_boosting:
+    enabled: true
+    class: "sklearn.ensemble.GradientBoostingClassifier"
+    params:
+      n_estimators: 100
+      learning_rate: 0.1
+      max_depth: 3
+      min_samples_leaf: 3
+      random_state: 42
+
+  # KNN
+  knn:
+    enabled: true
+    class: "sklearn.neighbors.KNeighborsClassifier"
+    params:
+      n_neighbors: 5
+      weights: "distance"
+
+  # Neural network (sklearn, not TensorFlow)
+  mlp:
+    enabled: true
+    class: "sklearn.neural_network.MLPClassifier"
+    params:
+      hidden_layer_sizes: [64, 32]
+      activation: "relu"
+      solver: "adam"
+      max_iter: 500
+      early_stopping: true
+      validation_fraction: 0.15
+      random_state: 42
+
+  # XGBoost
+  xgboost:
+    enabled: true
+    class: "xgboost.XGBClassifier"
+    params:
+      n_estimators: 100
+      max_depth: 3
+      learning_rate: 0.1
+      eval_metric: "mlogloss"
+      random_state: 42
+
+# --- Evaluation metrics ---
+evaluation:
+  primary_metric: "balanced_accuracy"
+  metrics:
+    - balanced_accuracy
+    - accuracy
+    - f1_weighted
+    - f1_macro
+    - precision_weighted
+    - recall_weighted
+    - cohen_kappa
+    - matthews_corrcoef
+  per_class_metrics: true
+  confusion_matrix: true
+  confidence_interval:
+    enabled: true
+    alpha: 0.05                       # 95% CI
+
+# --- Feature importance ---
+feature_importance:
+  permutation:
+    enabled: true
+    n_repeats: 10
+    random_state: 42
+    scoring: "balanced_accuracy"
+  tree_based:
+    enabled: true
+  shap:
+    enabled: true
+    max_display: 15
+
+# --- Visualization ---
+plot:
+  dpi: 300
+  figsize_single: [8, 6]
+  figsize_wide: [14, 6]
+  figsize_tall: [10, 12]
+  figsize_heatmap: [10, 8]
+  style: "seaborn-v0_8-whitegrid"
+  palette: "viridis"
+  font_size: 11
+  title_size: 13
+  save_formats: [png]
+  class_colors:
+    stable: "#4CAF50"
+    shrinking: "#FF9800"
+    severely_shrinking: "#F44336"
+  prefecture_colors:
+    Aomori: "#2196F3"
+    Akita: "#FF9800"
+
+# --- Report ---
+report:
+  title: "Classification Report: Shrinking Villages in Aomori & Akita"
+  author: "Julian"
+  generate_html: true
+
+# --- Reproducibility ---
+random_state: 42

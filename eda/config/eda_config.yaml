@@ -1,0 +1,53 @@
+data:
+  features_table: "outputs/final/features_table.parquet"
+  boundaries_path: "admin_demographics/boundaries/mura_jis_fix.gpkg"
+
+output:
+  base_dir: "eda/outputs"
+  figures_dir: "eda/outputs/figures"
+  tables_dir: "eda/outputs/tables"
+  reports_dir: "eda/outputs/reports"
+
+columns:
+  identifiers: [unit_id, unit_level, unit_code, pref_name, month]
+  spectral: [B2, B3, B4, B8, B11]
+  indices: [NDVI, NDBI]
+  texture: [S2_NDBI_contrast, S2_NDBI_entropy, S2_NDBI_homogeneity]
+  nightlights: [viirs_mean]
+  osm: [osm_built_area, osm_building_count, osm_built_ratio]
+  demographic: [pop_total, pop_male, pop_female, households_total, age_u15, age_15_64, age_65_plus, age_75_plus]
+  # Columns excluded from numeric analysis
+  meta_only: [muni_code, city_name_ja, unit_level, unit_code, households_total_from_popfile]
+
+feature_groups:
+  remote_sensing: [B2, B3, B4, B8, B11, NDVI, NDBI, S2_NDBI_contrast, S2_NDBI_entropy, S2_NDBI_homogeneity, viirs_mean]
+  built_environment: [osm_built_area, osm_building_count, osm_built_ratio]
+  demographic: [pop_total, pop_male, pop_female, households_total, age_u15, age_15_64, age_65_plus, age_75_plus]
+
+analysis:
+  outlier_method: "iqr"
+  outlier_iqr_factor: 1.5
+  outlier_zscore_threshold: 3.0
+  correlation_threshold: 0.8
+  missing_threshold: 0.20
+  glcm_nan_note: "GLCM texture features recomputed for all 65 units — NaN rate now matches spectral bands (~5.6%, cloud cover)"
+
+plot:
+  dpi: 300
+  figsize_single: [8, 6]
+  figsize_wide: [14, 6]
+  figsize_heatmap: [12, 10]
+  style: "seaborn-v0_8-whitegrid"
+  palette: "viridis"
+  font_size: 11
+  title_size: 13
+  save_formats: [png]
+  prefecture_colors:
+    Aomori: "#2196F3"
+    Akita: "#FF9800"
+
+report:
+  title: "EDA Report: Shrinking Villages Feature Table"
+  author: "Julian"
+  generate_html: true
+  generate_pdf: false

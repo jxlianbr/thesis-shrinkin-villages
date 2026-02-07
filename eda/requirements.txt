@@ -1,0 +1,8 @@
+# EDA-specific dependencies (beyond project requirements.txt)
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.14.0
+scipy>=1.10.0
+jinja2>=3.1.0
+weasyprint>=59.0
+tqdm>=4.65.0

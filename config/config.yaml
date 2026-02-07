@@ -36,7 +36,7 @@ features:
   compute_ndbi: true
   compute_glcm: false             # DISABLED in GEE (too expensive)
   compute_glcm_local: true        # Compute GLCM locally after GEE export
-  glcm_restrict_to_golden: true   # Only download GLCM rasters for golden AOI
+  glcm_restrict_to_golden: false   # Only download GLCM rasters for golden AOI
   include_viirs: true
   glcm_source_s2: "NDBI"
   glcm_size: 3

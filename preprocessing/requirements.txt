@@ -1,0 +1,4 @@
+# Preprocessing-specific dependencies (beyond project requirements.txt)
+# scikit-learn already in project requirements.txt
+# pandas, numpy, pyarrow, pyyaml already installed
+scipy>=1.10.0

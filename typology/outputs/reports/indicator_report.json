@@ -23,29 +23,18 @@
       "elderly_ratio",
       "youth_ratio"
     ],
-    "n_outlier_flags": 13,
+    "n_outlier_flags": 12,
     "outlier_flags": {
       "viirs_mean_slope": 1,
       "S2_NDBI_contrast_slope": 1,
-      "NDVI_cv": 2,
+      "NDVI_cv": 3,
       "NDBI_seasonal_amp": 1,
-      "S2_NDBI_contrast_mean": 2,
-      "S2_NDBI_entropy_mean": 1,
+      "S2_NDBI_contrast_mean": 1,
       "aging_index": 1,
       "household_size": 1,
       "pop_total": 3
     },
     "high_correlation_pairs": [
-      {
-        "feature_1": "NDVI_slope",
-        "feature_2": "NDVI_seasonal_amp",
-        "correlation": 0.827
-      },
-      {
-        "feature_1": "S2_NDBI_contrast_slope",
-        "feature_2": "S2_NDBI_contrast_mean",
-        "correlation": -0.801
-      },
       {
         "feature_1": "elderly_ratio",
         "feature_2": "aging_index",
@@ -64,67 +53,67 @@
     ],
     "summary_stats": {
       "NDVI_slope": {
-        "mean": 0.2569,
-        "std": 0.1398,
-        "min": -0.0473,
-        "max": 0.5645,
-        "median": 0.251
+        "mean": 0.2433,
+        "std": 0.1376,
+        "min": -0.0454,
+        "max": 0.5575,
+        "median": 0.2556
       },
       "NDBI_slope": {
-        "mean": 0.041,
-        "std": 0.0842,
-        "min": -0.0917,
-        "max": 0.2154,
-        "median": 0.0254
+        "mean": 0.0757,
+        "std": 0.0835,
+        "min": -0.071,
+        "max": 0.2723,
+        "median": 0.0702
       },
       "viirs_mean_slope": {
-        "mean": 0.0792,
-        "std": 0.3853,
-        "min": -2.1663,
-        "max": 0.8181,
-        "median": 0.1918
+        "mean": 0.0691,
+        "std": 0.3926,
+        "min": -2.2038,
+        "max": 0.815,
+        "median": 0.1856
       },
       "S2_NDBI_contrast_slope": {
-        "mean": -56.7408,
-        "std": 62.2853,
-        "min": -248.1886,
-        "max": 35.1433,
-        "median": -46.1203
+        "mean": -58.0809,
+        "std": 64.0416,
+        "min": -260.1885,
+        "max": 24.9404,
+        "median": -46.4538
       },
       "NDVI_cv": {
-        "mean": 1.168,
-        "std": 1.2495,
-        "min": 0.5143,
-        "max": 7.6885,
-        "median": 0.8833
+        "mean": 1.1939,
+        "std": 1.2313,
+        "min": 0.5245,
+        "max": 8.3356,
+        "median": 0.906
       },
       "NDVI_seasonal_amp": {
-        "mean": 0.3827,
-        "std": 0.1497,
-        "min": 0.1022,
+        "mean": 0.3913,
+        "std": 0.1479,
+        "min": 0.1062,
         "max": 0.6591,
-        "median": 0.3677
+        "median": 0.3732
       },
       "NDBI_seasonal_amp": {
-        "mean": 0.3731,
-        "std": 0.1188,
+        "mean": 0.3735,
+        "std": 0.1187,
         "min": 0.2173,
         "max": 0.7746,
         "median": 0.3554
       },
       "S2_NDBI_contrast_mean": {
-        "mean": 192.2167,
-        "std": 99.1139,
-        "min": 82.0833,
-        "max": 551.4731,
-        "median": 156.5197
+        "mean": 193.4806,
+        "std": 97.2136,
+        "min": 54.6654,
+        "max": 557.4077,
+        "median": 160.294
       },
       "S2_NDBI_entropy_mean": {
-        "mean": 5.2324,
-        "std": 1.0008,
-        "min": 2.1062,
-        "max": 7.393,
-        "median": 5.1944
+        "mean": 5.2076,
+        "std": 0.8848,
+        "min": 2.7133,
+        "max": 7.2689,
+        "median": 5.1491
       },
       "elderly_ratio": {
         "mean": 0.3975,

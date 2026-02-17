@@ -6,7 +6,7 @@
 data:
   classification_ready_path: "preprocessing/outputs/classification_ready.parquet"
   features_table_path: "outputs/final/features_table.parquet"
-  boundaries_path: "admin_demographics/boundaries/mura_jis.gpkg"
+  boundaries_path: "admin_demographics/boundaries/mura_jis_fix.gpkg"
   feature_metadata_path: "preprocessing/outputs/feature_metadata.csv"
   preprocessing_report_path: "preprocessing/outputs/preprocessing_report.json"
   # Optional: classification results for built-up change rate

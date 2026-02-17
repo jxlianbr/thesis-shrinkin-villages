@@ -1,9 +1,9 @@
 ,elderly_ratio,household_size,pop_total
-NDVI_slope,0.1307,0.3669,0.0763
-viirs_mean_slope,0.3876,0.186,-0.4788
-S2_NDBI_contrast_slope,-0.0768,-0.1717,0.3406
-NDVI_cv,0.0935,-0.2836,-0.0858
-NDVI_seasonal_amp,0.077,0.4886,0.0664
-NDBI_seasonal_amp,-0.1139,0.4317,0.1144
-S2_NDBI_contrast_mean,-0.1675,0.2415,-0.2741
-S2_NDBI_entropy_mean,-0.1092,0.2929,-0.088
+NDVI_slope,0.1754,0.3677,0.0622
+viirs_mean_slope,0.3764,0.188,-0.4818
+S2_NDBI_contrast_slope,-0.0914,-0.2067,0.3294
+NDVI_cv,0.0587,-0.2738,-0.081
+NDVI_seasonal_amp,0.06,0.4827,0.0518
+NDBI_seasonal_amp,-0.1126,0.4314,0.1145
+S2_NDBI_contrast_mean,-0.1683,0.2448,-0.2629
+S2_NDBI_entropy_mean,-0.2433,0.2255,0.0913

@@ -25,7 +25,7 @@ gee:
   max_parallel_months: 6
 
 data:
-  boundaries_path: "admin_demographics/boundaries/mura_jis.gpkg"
+  boundaries_path: "admin_demographics/boundaries/mura_jis_fix.gpkg"
   boundaries_layer: "mura"
   unit_id_field: "unit_id"
   demographics_path: "admin_demographics/demographics/village_demographics.csv"

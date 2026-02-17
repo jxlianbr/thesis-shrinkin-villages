@@ -11,7 +11,9 @@
       "Bash(ls:*)",
       "Bash(python3:*)",
       "Bash(dir:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(cd:*)",
+      "Bash(findstr:*)"
     ]
   }
 }

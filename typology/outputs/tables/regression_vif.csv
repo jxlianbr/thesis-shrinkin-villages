@@ -1,0 +1,8 @@
+,feature,vif
+0,NDVI_slope,1.27
+1,viirs_mean_slope,1.58
+2,S2_NDBI_contrast_slope,4.51
+3,NDVI_cv,1.32
+4,NDBI_seasonal_amp,1.2
+5,S2_NDBI_contrast_mean,4.62
+6,S2_NDBI_entropy_mean,1.75

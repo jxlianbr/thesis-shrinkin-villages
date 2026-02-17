@@ -1,0 +1,166 @@
+{
+  "n_indicators": 11,
+  "physical_indicators": [
+    "NDVI_slope",
+    "viirs_mean_slope",
+    "S2_NDBI_contrast_slope",
+    "NDVI_cv",
+    "NDVI_seasonal_amp",
+    "NDBI_seasonal_amp",
+    "S2_NDBI_contrast_mean",
+    "S2_NDBI_entropy_mean"
+  ],
+  "demographic_indicators": [
+    "elderly_ratio",
+    "household_size",
+    "pop_total"
+  ],
+  "quality": {
+    "n_missing_total": 0,
+    "missing_per_column": {},
+    "near_constant_features": [
+      "NDBI_slope",
+      "elderly_ratio",
+      "youth_ratio"
+    ],
+    "n_outlier_flags": 13,
+    "outlier_flags": {
+      "viirs_mean_slope": 1,
+      "S2_NDBI_contrast_slope": 1,
+      "NDVI_cv": 2,
+      "NDBI_seasonal_amp": 1,
+      "S2_NDBI_contrast_mean": 2,
+      "S2_NDBI_entropy_mean": 1,
+      "aging_index": 1,
+      "household_size": 1,
+      "pop_total": 3
+    },
+    "high_correlation_pairs": [
+      {
+        "feature_1": "NDVI_slope",
+        "feature_2": "NDVI_seasonal_amp",
+        "correlation": 0.827
+      },
+      {
+        "feature_1": "S2_NDBI_contrast_slope",
+        "feature_2": "S2_NDBI_contrast_mean",
+        "correlation": -0.801
+      },
+      {
+        "feature_1": "elderly_ratio",
+        "feature_2": "aging_index",
+        "correlation": 0.923
+      },
+      {
+        "feature_1": "elderly_ratio",
+        "feature_2": "youth_ratio",
+        "correlation": -0.878
+      },
+      {
+        "feature_1": "aging_index",
+        "feature_2": "youth_ratio",
+        "correlation": -0.926
+      }
+    ],
+    "summary_stats": {
+      "NDVI_slope": {
+        "mean": 0.2569,
+        "std": 0.1398,
+        "min": -0.0473,
+        "max": 0.5645,
+        "median": 0.251
+      },
+      "NDBI_slope": {
+        "mean": 0.041,
+        "std": 0.0842,
+        "min": -0.0917,
+        "max": 0.2154,
+        "median": 0.0254
+      },
+      "viirs_mean_slope": {
+        "mean": 0.0792,
+        "std": 0.3853,
+        "min": -2.1663,
+        "max": 0.8181,
+        "median": 0.1918
+      },
+      "S2_NDBI_contrast_slope": {
+        "mean": -56.7408,
+        "std": 62.2853,
+        "min": -248.1886,
+        "max": 35.1433,
+        "median": -46.1203
+      },
+      "NDVI_cv": {
+        "mean": 1.168,
+        "std": 1.2495,
+        "min": 0.5143,
+        "max": 7.6885,
+        "median": 0.8833
+      },
+      "NDVI_seasonal_amp": {
+        "mean": 0.3827,
+        "std": 0.1497,
+        "min": 0.1022,
+        "max": 0.6591,
+        "median": 0.3677
+      },
+      "NDBI_seasonal_amp": {
+        "mean": 0.3731,
+        "std": 0.1188,
+        "min": 0.2173,
+        "max": 0.7746,
+        "median": 0.3554
+      },
+      "S2_NDBI_contrast_mean": {
+        "mean": 192.2167,
+        "std": 99.1139,
+        "min": 82.0833,
+        "max": 551.4731,
+        "median": 156.5197
+      },
+      "S2_NDBI_entropy_mean": {
+        "mean": 5.2324,
+        "std": 1.0008,
+        "min": 2.1062,
+        "max": 7.393,
+        "median": 5.1944
+      },
+      "elderly_ratio": {
+        "mean": 0.3975,
+        "std": 0.0638,
+        "min": 0.2525,
+        "max": 0.5527,
+        "median": 0.3958
+      },
+      "aging_index": {
+        "mean": 4.6801,
+        "std": 1.8789,
+        "min": 2.0166,
+        "max": 12.2857,
+        "median": 4.2269
+      },
+      "youth_ratio": {
+        "mean": 0.0917,
+        "std": 0.0184,
+        "min": 0.045,
+        "max": 0.1363,
+        "median": 0.0938
+      },
+      "household_size": {
+        "mean": 2.6051,
+        "std": 0.2992,
+        "min": 2.0064,
+        "max": 3.606,
+        "median": 2.6024
+      },
+      "pop_total": {
+        "mean": 33807.4912,
+        "std": 59288.966,
+        "min": 1265.0001,
+        "max": 307672.1636,
+        "median": 13496.0038
+      }
+    }
+  }
+}

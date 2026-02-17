@@ -40,6 +40,11 @@ data:
 features:
   compute_ndvi: true
   compute_ndbi: true
+  compute_mndwi: true             # MNDWI = (B3-B11)/(B3+B11) water index
+  compute_terrain: true           # Copernicus DEM GLO-30 terrain features (static)
+  compute_lulc: true              # Dynamic World LULC class fractions (static)
+  terrain_scale: 30               # Native DEM resolution (30m)
+  lulc_scale: 50                  # Match S2 processing scale
   compute_glcm: false
   compute_glcm_local: true
   glcm_restrict_to_golden: true   # Only download GLCM rasters for golden AOI

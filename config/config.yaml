@@ -34,6 +34,11 @@ data:
 features:
   compute_ndvi: true
   compute_ndbi: true
+  compute_mndwi: true             # MNDWI = (B3-B11)/(B3+B11) water index
+  compute_terrain: true           # Copernicus DEM GLO-30 terrain features (static)
+  compute_lulc: true              # Dynamic World LULC class fractions (static)
+  terrain_scale: 30               # Native DEM resolution (30m)
+  lulc_scale: 100                 # Coarser than S2 native; fractions are stable at 100m
   compute_glcm: false             # DISABLED in GEE (too expensive)
   compute_glcm_local: true        # Compute GLCM locally after GEE export
   glcm_restrict_to_golden: false   # Only download GLCM rasters for golden AOI

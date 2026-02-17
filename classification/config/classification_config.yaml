@@ -41,6 +41,11 @@ feature_groups:
     - NDBI_std
     - NDBI_slope
     - NDBI_seasonal_amp
+  water:
+    - MNDWI_mean
+    - MNDWI_std
+    - MNDWI_slope
+    - MNDWI_seasonal_amp
   nightlights:
     - viirs_mean_mean
     - viirs_mean_std
@@ -57,6 +62,23 @@ feature_groups:
   osm:
     - osm_built_area
     - osm_built_ratio
+  terrain:
+    - elevation_mean
+    - elevation_std
+    - slope_mean
+    - slope_std
+    - aspect_sin_mean
+    - aspect_cos_mean
+    - tri_mean
+  lulc:
+    - dw_water_frac
+    - dw_trees_frac
+    - dw_grass_frac
+    - dw_flooded_vegetation_frac
+    - dw_crops_frac
+    - dw_shrub_and_scrub_frac
+    - dw_built_frac
+    - dw_bare_frac
   derived:
     - elderly_ratio
     - aging_index
@@ -141,7 +163,6 @@ models:
       C: 1.0
       penalty: "l2"
       solver: "lbfgs"
-      multi_class: "multinomial"
       max_iter: 1000
       random_state: 42
 
@@ -153,6 +174,7 @@ models:
       kernel: "linear"
       C: 1.0
       probability: true
+      max_iter: 5000
       random_state: 42
 
   svm_rbf:

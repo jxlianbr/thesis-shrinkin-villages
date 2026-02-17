@@ -1,35 +1,37 @@
 {
-  "schema_warnings": [],
+  "schema_warnings": [
+    "Extra columns not in config: ['viirs_mean_x', 'viirs_mean_y', 'elevation_mean', 'elevation_std', 'slope_mean', 'slope_std', 'aspect_sin_mean', 'aspect_cos_mean', 'tri_mean', 'dw_water_frac', 'dw_trees_frac', 'dw_grass_frac', 'dw_flooded_vegetation_frac', 'dw_crops_frac', 'dw_shrub_and_scrub_frac', 'dw_built_frac', 'dw_bare_frac', 'dw_snow_and_ice_frac']"
+  ],
   "summary_stats": {
-    "row_count": 8450,
-    "column_count": 34,
-    "numeric_feature_count": 24,
+    "row_count": 8470,
+    "column_count": 53,
+    "numeric_feature_count": 43,
     "unit_count": 65,
     "month_range": {
       "min": "2015-01",
-      "max": "2025-10"
+      "max": "2025-12"
     },
     "prefectures": [
       "Akita",
       "Aomori"
     ],
     "most_variable_features": {
-      "osm_built_area": 4224090.268609797,
-      "pop_total": 58834.58011609609,
-      "osm_building_count": 34549.28067380401,
-      "age_15_64": 32781.835018938466,
-      "pop_female": 31193.968415821695
+      "osm_built_area": 4230596.060772039,
+      "pop_total": 58993.15796371552,
+      "osm_building_count": 34606.99259754268,
+      "age_15_64": 32871.11117945356,
+      "pop_female": 31278.971896958195
     },
     "most_skewed_features": {
-      "viirs_mean": 4.2833218777093105,
-      "households_total": 3.443582740684532,
-      "age_15_64": 3.344012040905132,
-      "age_u15": 3.3343395239934748,
-      "pop_male": 3.2916739041783583
+      "viirs_mean": 4.290622856165572,
+      "households_total": 3.4272784599538073,
+      "age_15_64": 3.3282336475184104,
+      "age_u15": 3.318620137948402,
+      "pop_male": 3.2768364005962916
     }
   },
   "missing_data": {
-    "overall_missing_pct": 13.39,
+    "overall_missing_pct": 14.62,
     "columns_above_threshold": [
       "B2",
       "B3",
@@ -38,6 +40,9 @@
       "B11",
       "NDVI",
       "NDBI",
+      "MNDWI",
+      "viirs_mean_x",
+      "viirs_mean_y",
       "S2_NDBI_contrast",
       "S2_NDBI_entropy",
       "S2_NDBI_homogeneity"
@@ -54,10 +59,20 @@
       "B11",
       "NDVI",
       "NDBI",
+      "MNDWI",
       "viirs_mean",
       "S2_NDBI_contrast",
       "S2_NDBI_entropy",
       "S2_NDBI_homogeneity",
+      "dw_water_frac",
+      "dw_trees_frac",
+      "dw_grass_frac",
+      "dw_flooded_vegetation_frac",
+      "dw_crops_frac",
+      "dw_shrub_and_scrub_frac",
+      "dw_built_frac",
+      "dw_bare_frac",
+      "dw_snow_and_ice_frac",
       "pop_total",
       "pop_male",
       "pop_female",
@@ -77,6 +92,12 @@
       "B8",
       "viirs_mean",
       "S2_NDBI_contrast",
+      "dw_water_frac",
+      "dw_grass_frac",
+      "dw_flooded_vegetation_frac",
+      "dw_crops_frac",
+      "dw_built_frac",
+      "dw_bare_frac",
       "pop_total",
       "pop_male",
       "pop_female",
@@ -89,11 +110,32 @@
       "osm_building_count",
       "osm_built_ratio"
     ],
-    "n_analysed": 22
+    "n_analysed": 32
   },
   "correlations": {
-    "n_features": 24,
+    "n_features": 43,
     "highly_correlated_pairs": [
+      {
+        "pair": "viirs_mean -- viirs_mean_x",
+        "feature_1": "viirs_mean",
+        "feature_2": "viirs_mean_x",
+        "correlation": 1.0,
+        "abs_correlation": 1.0
+      },
+      {
+        "pair": "viirs_mean -- viirs_mean_y",
+        "feature_1": "viirs_mean",
+        "feature_2": "viirs_mean_y",
+        "correlation": 1.0,
+        "abs_correlation": 1.0
+      },
+      {
+        "pair": "viirs_mean_x -- viirs_mean_y",
+        "feature_1": "viirs_mean_x",
+        "feature_2": "viirs_mean_y",
+        "correlation": 1.0,
+        "abs_correlation": 1.0
+      },
       {
         "pair": "pop_total -- pop_female",
         "feature_1": "pop_total",
@@ -142,86 +184,65 @@
         "feature_2": "age_15_64",
         "correlation": 0.9991,
         "abs_correlation": 0.9991
-      },
-      {
-        "pair": "households_total -- age_15_64",
-        "feature_1": "households_total",
-        "feature_2": "age_15_64",
-        "correlation": 0.9991,
-        "abs_correlation": 0.9991
-      },
-      {
-        "pair": "age_u15 -- age_15_64",
-        "feature_1": "age_u15",
-        "feature_2": "age_15_64",
-        "correlation": 0.9989,
-        "abs_correlation": 0.9989
-      },
-      {
-        "pair": "pop_male -- households_total",
-        "feature_1": "pop_male",
-        "feature_2": "households_total",
-        "correlation": 0.9987,
-        "abs_correlation": 0.9987
       }
     ],
     "top_rs_demo_associations": [
       {
         "rs_feature": "osm_built_area",
         "demo_feature": "age_75_plus",
-        "correlation": 0.8443
+        "correlation": 0.8446
       },
       {
         "rs_feature": "osm_built_area",
         "demo_feature": "age_65_plus",
-        "correlation": 0.8373
+        "correlation": 0.8377
       },
       {
         "rs_feature": "osm_built_area",
         "demo_feature": "pop_male",
-        "correlation": 0.8184
+        "correlation": 0.8188
       },
       {
         "rs_feature": "osm_built_area",
         "demo_feature": "pop_total",
-        "correlation": 0.8167
+        "correlation": 0.8171
       },
       {
         "rs_feature": "osm_built_area",
         "demo_feature": "pop_female",
-        "correlation": 0.815
+        "correlation": 0.8154
       },
       {
         "rs_feature": "osm_built_area",
         "demo_feature": "households_total",
-        "correlation": 0.8135
+        "correlation": 0.8139
       },
       {
         "rs_feature": "osm_building_count",
         "demo_feature": "age_75_plus",
-        "correlation": 0.8131
+        "correlation": 0.8137
       },
       {
         "rs_feature": "osm_building_count",
         "demo_feature": "age_65_plus",
-        "correlation": 0.807
+        "correlation": 0.8075
       },
       {
         "rs_feature": "osm_built_area",
         "demo_feature": "age_15_64",
-        "correlation": 0.8067
+        "correlation": 0.8071
       },
       {
         "rs_feature": "osm_built_area",
         "demo_feature": "age_u15",
-        "correlation": 0.8065
+        "correlation": 0.807
       }
     ],
     "correlation_threshold": 0.8
   },
   "temporal": {
     "coverage_summary": {
-      "mean_months_per_unit": 84.4,
+      "mean_months_per_unit": 85.2,
       "min_months": 71,
       "units_with_gaps": 65
     },
@@ -240,63 +261,63 @@
     "by_prefecture": {
       "Akita": {
         "n_units": 25,
-        "mean_ndvi": 0.2255,
-        "mean_viirs": 0.7004,
+        "mean_ndvi": 0.2206,
+        "mean_viirs": 0.6998,
         "mean_pop": 38380.1
       },
       "Aomori": {
         "n_units": 40,
-        "mean_ndvi": 0.1919,
-        "mean_viirs": 1.1149,
-        "mean_pop": 30949.6
+        "mean_ndvi": 0.1865,
+        "mean_viirs": 1.116,
+        "mean_pop": 31201.0
       }
     }
   },
   "outliers": {
-    "total_outlier_observations": 17209,
-    "features_with_outliers": 21,
+    "total_outlier_observations": 25932,
+    "features_with_outliers": 34,
     "most_affected_features": [
       {
+        "feature": "slope_std",
+        "outlier_pct": 25.0
+      },
+      {
+        "feature": "viirs_mean_x",
+        "outlier_pct": 20.0
+      },
+      {
+        "feature": "viirs_mean_y",
+        "outlier_pct": 20.0
+      },
+      {
         "feature": "S2_NDBI_entropy",
-        "outlier_pct": 18.0
+        "outlier_pct": 17.47
       },
       {
         "feature": "S2_NDBI_homogeneity",
-        "outlier_pct": 16.15
-      },
-      {
-        "feature": "osm_built_area",
-        "outlier_pct": 15.38
-      },
-      {
-        "feature": "osm_building_count",
-        "outlier_pct": 15.38
-      },
-      {
-        "feature": "B3",
-        "outlier_pct": 13.68
+        "outlier_pct": 17.3
       }
     ],
     "most_affected_units": [
       {
         "unit_id": "mura:Aomori:02203",
-        "outlier_count": 1695
-      },
-      {
-        "unit_id": "mura:Akita:05201",
-        "outlier_count": 1555
+        "outlier_count": 1799
       },
       {
         "unit_id": "mura:Aomori:02201",
-        "outlier_count": 1515
+        "outlier_count": 1674
+      },
+      {
+        "unit_id": "mura:Akita:05201",
+        "outlier_count": 1557
       },
       {
         "unit_id": "mura:Akita:05203",
-        "outlier_count": 1449
+        "outlier_count": 1447
       },
       {
         "unit_id": "mura:Akita:05212",
-        "outlier_count": 1429
+        "outlier_count": 1430
       }
     ],
     "method": "IQR \u00d7 1.5"
@@ -306,22 +327,22 @@
       {
         "x": "NDVI",
         "y": "pop_total",
-        "r": 0.0841
+        "r": 0.0897
       },
       {
         "x": "viirs_mean",
         "y": "pop_total",
-        "r": 0.4716
+        "r": 0.4706
       },
       {
         "x": "NDBI",
         "y": "pop_total",
-        "r": -0.0521
+        "r": -0.0497
       },
       {
         "x": "viirs_mean",
         "y": "elderly_ratio",
-        "r": -0.569
+        "r": -0.5706
       }
     ]
   }

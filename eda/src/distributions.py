@@ -44,6 +44,7 @@ def run_distribution_analysis(
         + cfg["columns"].get("texture", [])
     )
 
+    lulc_cols = get_existing_columns(df, cfg["columns"].get("lulc", []))
     demo_cols = get_existing_columns(df, cfg["columns"].get("demographic", []))
     osm_cols = get_existing_columns(df, cfg["columns"].get("osm", []))
 
@@ -51,6 +52,9 @@ def run_distribution_analysis(
     if rs_cols:
         _plot_histogram_grid(df, rs_cols, "Remote Sensing Features",
                              "distributions_rs", cfg)
+    if lulc_cols:
+        _plot_histogram_grid(df, lulc_cols, "LULC Class Fractions (Dynamic World)",
+                             "distributions_lulc", cfg)
     if demo_cols:
         _plot_histogram_grid(df, demo_cols, "Demographic Features",
                              "distributions_demo", cfg)
@@ -63,7 +67,7 @@ def run_distribution_analysis(
         _plot_boxplots_by_prefecture(df, key_features, cfg)
 
     # --- Distribution statistics table ---
-    all_cols = rs_cols + demo_cols + osm_cols
+    all_cols = rs_cols + lulc_cols + demo_cols + osm_cols
     stats_records = []
     for col in all_cols:
         series = df[col].dropna()

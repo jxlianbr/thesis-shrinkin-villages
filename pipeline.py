@@ -159,6 +159,56 @@ def main(config_path: str = "config/config.yaml") -> None:
             "source": "OpenStreetMap building footprints",
         })
 
+    # 4c) Terrain features (DEM/slope/aspect/TRI -- static per unit)
+    compute_terrain = bool(cfg.get("features", {}).get("compute_terrain", False))
+    if compute_terrain and features_df is not None:
+        print("Extracting terrain features from Copernicus DEM...")
+        from data_preprocessing.gee_terrain import run_terrain_extraction, TERRAIN_FEATURES
+
+        terrain_df = run_terrain_extraction(cfg)
+
+        unit_id_field = cfg["data"]["unit_id_field"]
+        terrain_cols = [c for c in TERRAIN_FEATURES if c in terrain_df.columns]
+        merge_cols = [unit_id_field] + terrain_cols
+
+        features_df = features_df.merge(
+            terrain_df[merge_cols],
+            on=unit_id_field,
+            how="left",
+        )
+        manifest["steps"].append({
+            "step": "terrain_feature_extraction",
+            "status": "ok",
+            "ts_utc": _utc_now(),
+            "source": "COPERNICUS/DEM/GLO30",
+            "features": terrain_cols,
+        })
+
+    # 4d) LULC class fractions (Dynamic World -- static composite per unit)
+    compute_lulc = bool(cfg.get("features", {}).get("compute_lulc", False))
+    if compute_lulc and features_df is not None:
+        print("Extracting LULC class fractions from Dynamic World...")
+        from data_preprocessing.gee_lulc import run_lulc_extraction, LULC_FEATURES
+
+        lulc_df = run_lulc_extraction(cfg)
+
+        unit_id_field = cfg["data"]["unit_id_field"]
+        lulc_cols = [c for c in LULC_FEATURES if c in lulc_df.columns]
+        merge_cols = [unit_id_field] + lulc_cols
+
+        features_df = features_df.merge(
+            lulc_df[merge_cols],
+            on=unit_id_field,
+            how="left",
+        )
+        manifest["steps"].append({
+            "step": "lulc_extraction",
+            "status": "ok",
+            "ts_utc": _utc_now(),
+            "source": "GOOGLE/DYNAMICWORLD/V1",
+            "features": lulc_cols,
+        })
+
     # 5) Aggregation to village/sub-municipal units
     # In this backbone, aggregation is done in GEE via reduceRegions; table is already at unit level.
     manifest["steps"].append({"step": "aggregation_to_units", "status": "ok", "ts_utc": _utc_now()})

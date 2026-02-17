@@ -96,6 +96,8 @@ def main(config_path: str = "preprocessing/config/preprocessing_config.yaml") ->
     report["steps"].append({
         "step": "transform",
         "log1p_applied": transform_meta["log1p_features"],
+        "imputed_features": transform_meta.get("imputed_features", []),
+        "imputation_strategy": transform_meta.get("imputation_strategy", "none"),
         "scaler": transform_meta["scaler_type"],
         "n_scaled_features": transform_meta["n_features"],
     })

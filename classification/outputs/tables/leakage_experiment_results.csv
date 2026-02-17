@@ -1,41 +1,37 @@
 ,experiment,model,balanced_accuracy
-0,all_features,Gradient Boosting,0.9819999999999999
-1,all_features,XGBoost,0.9646666666666667
-2,all_features,Random Forest,0.9279999999999999
-3,all_features,SVM (Linear),0.81
-4,all_features,Logistic Regression,0.7613333333333334
-5,all_features,SVM (RBF),0.6653333333333333
-6,all_features,K-Nearest Neighbors,0.6586666666666667
-7,all_features,MLP Neural Network,0.4146666666666667
-8,all_features,Dummy (Stratified),0.3493333333333333
-9,all_features,Dummy (Most Frequent),0.33333333333333337
-10,no_leaky,SVM (Linear),0.662
-11,no_leaky,Logistic Regression,0.6439999999999999
-12,no_leaky,Random Forest,0.614
-13,no_leaky,XGBoost,0.6019999999999999
-14,no_leaky,K-Nearest Neighbors,0.6
-15,no_leaky,SVM (RBF),0.5993333333333333
-16,no_leaky,Gradient Boosting,0.5973333333333332
-17,no_leaky,MLP Neural Network,0.45666666666666667
-18,no_leaky,Dummy (Stratified),0.3493333333333333
-19,no_leaky,Dummy (Most Frequent),0.33333333333333337
-20,no_demographic,SVM (Linear),0.6506666666666666
-21,no_demographic,XGBoost,0.64
-22,no_demographic,Random Forest,0.632
-23,no_demographic,Gradient Boosting,0.6246666666666667
-24,no_demographic,Logistic Regression,0.6033333333333334
-25,no_demographic,K-Nearest Neighbors,0.5433333333333333
-26,no_demographic,SVM (RBF),0.5233333333333333
-27,no_demographic,MLP Neural Network,0.43933333333333335
-28,no_demographic,Dummy (Stratified),0.3493333333333333
-29,no_demographic,Dummy (Most Frequent),0.33333333333333337
-30,rs_only,XGBoost,0.6526666666666666
-31,rs_only,Random Forest,0.628
-32,rs_only,SVM (Linear),0.6206666666666667
-33,rs_only,Gradient Boosting,0.612
-34,rs_only,Logistic Regression,0.5926666666666667
-35,rs_only,SVM (RBF),0.5333333333333333
-36,rs_only,K-Nearest Neighbors,0.5153333333333333
-37,rs_only,MLP Neural Network,0.4306666666666667
-38,rs_only,Dummy (Stratified),0.3493333333333333
-39,rs_only,Dummy (Most Frequent),0.33333333333333337
+0,all_features,Gradient Boosting,0.9753333333333333
+1,all_features,Random Forest,0.93
+2,all_features,Logistic Regression,0.758
+3,all_features,SVM (Linear),0.7106666666666668
+4,all_features,K-Nearest Neighbors,0.5473333333333333
+5,all_features,MLP Neural Network,0.46266666666666667
+6,all_features,Dummy (Stratified),0.3493333333333333
+7,all_features,SVM (RBF),0.33399999999999996
+8,all_features,Dummy (Most Frequent),0.33333333333333337
+9,no_leaky,Gradient Boosting,0.6586666666666667
+10,no_leaky,Logistic Regression,0.6426666666666666
+11,no_leaky,Random Forest,0.6126666666666667
+12,no_leaky,SVM (Linear),0.588
+13,no_leaky,K-Nearest Neighbors,0.5186666666666667
+14,no_leaky,MLP Neural Network,0.37066666666666664
+15,no_leaky,Dummy (Stratified),0.3493333333333333
+16,no_leaky,SVM (RBF),0.33399999999999996
+17,no_leaky,Dummy (Most Frequent),0.33333333333333337
+18,no_demographic,Gradient Boosting,0.6486666666666667
+19,no_demographic,Random Forest,0.6166666666666666
+20,no_demographic,SVM (Linear),0.6053333333333333
+21,no_demographic,Logistic Regression,0.596
+22,no_demographic,K-Nearest Neighbors,0.4833333333333333
+23,no_demographic,Dummy (Stratified),0.3493333333333333
+24,no_demographic,MLP Neural Network,0.3466666666666666
+25,no_demographic,SVM (RBF),0.33399999999999996
+26,no_demographic,Dummy (Most Frequent),0.33333333333333337
+27,rs_only,Logistic Regression,0.6433333333333333
+28,rs_only,Gradient Boosting,0.6286666666666667
+29,rs_only,Random Forest,0.6139999999999999
+30,rs_only,SVM (Linear),0.5893333333333333
+31,rs_only,K-Nearest Neighbors,0.474
+32,rs_only,Dummy (Stratified),0.3493333333333333
+33,rs_only,MLP Neural Network,0.3433333333333334
+34,rs_only,SVM (RBF),0.33399999999999996
+35,rs_only,Dummy (Most Frequent),0.33333333333333337

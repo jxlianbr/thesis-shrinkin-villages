@@ -34,6 +34,8 @@ def aggregate_to_cross_section(
     agg_cfg = cfg["temporal_aggregation"]
     demo_cols = [c for c in cfg["demographic_features"] if c in df.columns]
     osm_cols = [c for c in cfg["osm_features"] if c in df.columns]
+    terrain_cols = [c for c in cfg.get("terrain_features", []) if c in df.columns]
+    lulc_cols = [c for c in cfg.get("lulc_features", []) if c in df.columns]
     mean_std_cols = [c for c in agg_cfg["mean_std_features"] if c in df.columns]
     trend_cols = [c for c in agg_cfg["trend_features"] if c in df.columns]
     seasonal_cols = [c for c in agg_cfg["seasonal_features"] if c in df.columns]
@@ -79,8 +81,8 @@ def aggregate_to_cross_section(
                 else:
                     row[f"{col}_seasonal_amp"] = np.nan
 
-        # --- Static features (demographics, OSM): take first value ---
-        for col in demo_cols + osm_cols:
+        # --- Static features (demographics, OSM, terrain, LULC): take first value ---
+        for col in demo_cols + osm_cols + terrain_cols + lulc_cols:
             row[col] = grp[col].iloc[0]
 
         records.append(row)
@@ -88,5 +90,5 @@ def aggregate_to_cross_section(
     result = pd.DataFrame(records)
     print(f"  Aggregated: {len(df)} rows -> {len(result)} rows")
     print(f"  Columns: {len(result.columns)} "
-          f"(RS aggregates + static demographics/OSM)")
+          f"(RS aggregates + static demographics/OSM/terrain/LULC)")
     return result

@@ -15,19 +15,28 @@ drop:
 # Temporal aggregation: which stats to compute per unit
 temporal_aggregation:
   # Features that get mean + std
-  mean_std_features: [B2, B3, B4, B8, B11, NDVI, NDBI, viirs_mean,
+  mean_std_features: [B2, B3, B4, B8, B11, NDVI, NDBI, MNDWI, viirs_mean,
                       S2_NDBI_contrast, S2_NDBI_entropy, S2_NDBI_homogeneity]
   # Features that additionally get trend slope
-  trend_features: [NDVI, NDBI, viirs_mean]
+  trend_features: [NDVI, NDBI, MNDWI, viirs_mean]
   # Features that additionally get seasonal amplitude (max-min monthly mean)
-  seasonal_features: [NDVI, NDBI]
+  seasonal_features: [NDVI, NDBI, MNDWI]
 
 # Demographic features (static per unit — just take first value)
 demographic_features: [pop_total, pop_male, pop_female, households_total,
                        age_u15, age_15_64, age_65_plus, age_75_plus]
 
-# OSM features (static per unit — just take first value)
+# OSM features (static per unit -- just take first value)
 osm_features: [osm_built_area, osm_building_count, osm_built_ratio]
+
+# Terrain features (static per unit -- just take first value)
+terrain_features: [elevation_mean, elevation_std, slope_mean, slope_std,
+                   aspect_sin_mean, aspect_cos_mean, tri_mean]
+
+# LULC features (static per unit -- just take first value)
+lulc_features: [dw_water_frac, dw_trees_frac, dw_grass_frac, dw_flooded_vegetation_frac,
+                dw_crops_frac, dw_shrub_and_scrub_frac, dw_built_frac,
+                dw_bare_frac, dw_snow_and_ice_frac]
 
 # Feature engineering: derived features to compute
 derived_features:
@@ -61,6 +70,13 @@ multicollinearity:
   # Texture: S2_NDBI_entropy / S2_NDBI_homogeneity r=-0.99 -> keep entropy
   # S2_NDBI_contrast is independent (no high correlations)
   drop_texture_correlated: [S2_NDBI_homogeneity]
+  # LULC: 9 fractions sum to ~1.0 -- drop least informative to break constraint
+  # snow_and_ice likely ~0 for most Tohoku units
+  drop_lulc_correlated: [dw_snow_and_ice_frac]
+
+# Imputation (applied before transform/scaling)
+imputation:
+  strategy: "median"  # "median" or "mean"
 
 # Transformation
 transform:

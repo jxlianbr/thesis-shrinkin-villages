@@ -400,6 +400,7 @@ def _process_single_month(ym: str, ctx: Dict[str, Any]) -> pd.DataFrame | None:
     max_retries = ctx["max_retries"]
     compute_ndvi = ctx["compute_ndvi"]
     compute_ndbi = ctx["compute_ndbi"]
+    compute_mndwi = ctx["compute_mndwi"]
     compute_glcm = ctx["compute_glcm"]
     glcm_source_s2 = ctx["glcm_source_s2"]
     glcm_size = ctx["glcm_size"]
@@ -436,6 +437,8 @@ def _process_single_month(ym: str, ctx: Dict[str, Any]) -> pd.DataFrame | None:
         select_list.append("NDVI")
     if compute_ndbi:
         select_list.append("NDBI")
+    if compute_mndwi:
+        select_list.append("MNDWI")
 
     # If a month has no images, use a masked placeholder so the export still runs
     empty_s2 = _masked_constant_image(select_list)
@@ -567,6 +570,8 @@ def _process_single_month(ym: str, ctx: Dict[str, Any]) -> pd.DataFrame | None:
             req.append("NDVI")
         if compute_ndbi:
             req.append("NDBI")
+        if compute_mndwi:
+            req.append("MNDWI")
         if compute_glcm:
             req += [f"S2_{glcm_source_s2}_{m}" for m in glcm_metrics]
         _assert_month_features_not_all_nan(df, ym, req)
@@ -657,6 +662,7 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
     # GLCM / indices settings
     compute_ndvi = bool(cfg.get("features", {}).get("compute_ndvi", True))
     compute_ndbi = bool(cfg.get("features", {}).get("compute_ndbi", True))
+    compute_mndwi = bool(cfg.get("features", {}).get("compute_mndwi", False))
 
     compute_glcm = bool(cfg.get("features", {}).get("compute_glcm", False))
     glcm_size = int(cfg.get("features", {}).get("glcm_size", 3))
@@ -712,9 +718,11 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
             out = out.addBands(img.normalizedDifference(["B8", "B4"]).rename("NDVI"))
         if compute_ndbi:
             out = out.addBands(img.normalizedDifference(["B11", "B8"]).rename("NDBI"))
+        if compute_mndwi:
+            out = out.addBands(img.normalizedDifference(["B3", "B11"]).rename("MNDWI"))
         return out
 
-    if compute_ndvi or compute_ndbi:
+    if compute_ndvi or compute_ndbi or compute_mndwi:
         s2 = s2.map(add_s2_indices)
 
     
@@ -757,6 +765,8 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         selectors.append("NDVI")
     if compute_ndbi:
         selectors.append("NDBI")
+    if compute_mndwi:
+        selectors.append("MNDWI")
     if compute_glcm:
         selectors += [f"S2_{glcm_source_s2}_{m}" for m in glcm_metrics]
 
@@ -777,6 +787,7 @@ def run_gee_monthly_feature_export(cfg: Dict[str, Any]) -> pd.DataFrame:
         "max_retries": max_retries,
         "compute_ndvi": compute_ndvi,
         "compute_ndbi": compute_ndbi,
+        "compute_mndwi": compute_mndwi,
         "compute_glcm": compute_glcm,
         "glcm_source_s2": glcm_source_s2,
         "glcm_size": glcm_size,

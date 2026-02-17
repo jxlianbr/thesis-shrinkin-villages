@@ -58,6 +58,7 @@ def run_correlation_analysis(
         + cfg["columns"].get("indices", [])
         + cfg["columns"].get("nightlights", [])
         + cfg["columns"].get("texture", [])
+        + cfg["columns"].get("lulc", [])
         + cfg["columns"].get("osm", [])
     )
     demo_cols = get_existing_columns(df, cfg["columns"].get("demographic", []))

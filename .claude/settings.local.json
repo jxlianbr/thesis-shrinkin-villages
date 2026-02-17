@@ -13,7 +13,8 @@
       "Bash(dir:*)",
       "Bash(pip install:*)",
       "Bash(cd:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(tasklist:*)"
     ]
   }
 }

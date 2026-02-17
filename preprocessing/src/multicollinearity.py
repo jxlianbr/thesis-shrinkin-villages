@@ -56,6 +56,11 @@ def resolve_multicollinearity(
             if full_name in df.columns:
                 to_drop.append(full_name)
 
+    # LULC features to drop directly (fractions sum to ~1, break constraint)
+    for col in mc_cfg.get("drop_lulc_correlated", []):
+        if col in df.columns:
+            to_drop.append(col)
+
     if to_drop:
         df = df.drop(columns=to_drop)
 

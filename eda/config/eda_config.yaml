@@ -11,16 +11,18 @@ output:
 columns:
   identifiers: [unit_id, unit_level, unit_code, pref_name, month]
   spectral: [B2, B3, B4, B8, B11]
-  indices: [NDVI, NDBI]
+  indices: [NDVI, NDBI, MNDWI]
   texture: [S2_NDBI_contrast, S2_NDBI_entropy, S2_NDBI_homogeneity]
   nightlights: [viirs_mean]
+  lulc: [dw_water_frac, dw_trees_frac, dw_grass_frac, dw_flooded_vegetation_frac, dw_crops_frac, dw_shrub_and_scrub_frac, dw_built_frac, dw_bare_frac, dw_snow_and_ice_frac]
   osm: [osm_built_area, osm_building_count, osm_built_ratio]
   demographic: [pop_total, pop_male, pop_female, households_total, age_u15, age_15_64, age_65_plus, age_75_plus]
   # Columns excluded from numeric analysis
   meta_only: [muni_code, city_name_ja, unit_level, unit_code, households_total_from_popfile]
 
 feature_groups:
-  remote_sensing: [B2, B3, B4, B8, B11, NDVI, NDBI, S2_NDBI_contrast, S2_NDBI_entropy, S2_NDBI_homogeneity, viirs_mean]
+  remote_sensing: [B2, B3, B4, B8, B11, NDVI, NDBI, MNDWI, S2_NDBI_contrast, S2_NDBI_entropy, S2_NDBI_homogeneity, viirs_mean]
+  land_cover: [dw_water_frac, dw_trees_frac, dw_grass_frac, dw_flooded_vegetation_frac, dw_crops_frac, dw_shrub_and_scrub_frac, dw_built_frac, dw_bare_frac, dw_snow_and_ice_frac]
   built_environment: [osm_built_area, osm_building_count, osm_built_ratio]
   demographic: [pop_total, pop_male, pop_female, households_total, age_u15, age_15_64, age_65_plus, age_75_plus]
 

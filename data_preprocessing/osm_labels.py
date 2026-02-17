@@ -12,6 +12,7 @@ Features computed:
 from __future__ import annotations
 
 import json
+import time
 import urllib.request
 from pathlib import Path
 from typing import Any, Dict
@@ -43,7 +44,7 @@ def _get_prefecture_bbox(pref_name: str) -> tuple[float, float, float, float]:
 def download_osm_buildings_overpass(
     prefectures: list[str],
     output_path: str,
-    timeout: int = 300,
+    timeout: int = 600,
 ) -> gpd.GeoDataFrame:
     """
     Download OSM building footprints via Overpass API.
@@ -81,11 +82,26 @@ out skel qt;
         req = urllib.request.Request(url, data=data, method="POST")
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
 
-        try:
-            with urllib.request.urlopen(req, timeout=timeout + 60) as response:
-                result = json.loads(response.read().decode("utf-8"))
-        except Exception as e:
-            print(f"  Warning: Failed to download {pref}: {e}")
+        max_retries = 3
+        result = None
+        for attempt in range(max_retries):
+            try:
+                with urllib.request.urlopen(req, timeout=timeout + 60) as response:
+                    result = json.loads(response.read().decode("utf-8"))
+                break  # success
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    delay = 30 * (2 ** attempt)  # 30s, 60s, 120s
+                    print(f"  Attempt {attempt + 1}/{max_retries} failed for {pref}: {e}")
+                    print(f"  Retrying in {delay}s...")
+                    time.sleep(delay)
+                    # Rebuild request (urlopen consumes it)
+                    req = urllib.request.Request(url, data=data, method="POST")
+                    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+                else:
+                    print(f"  Warning: Failed to download {pref} after {max_retries} attempts: {e}")
+
+        if result is None:
             continue
 
         # Parse OSM JSON to GeoDataFrame

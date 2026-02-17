@@ -59,7 +59,28 @@ def transform_features(
 
     print(f"  log1p applied to {len(log1p_applied)} features: {log1p_applied}")
 
-    # --- Step 2: Scaling ---
+    # --- Step 2: Impute remaining NaN ---
+    impute_cfg = cfg.get("imputation", {})
+    strategy = impute_cfg.get("strategy", "median")
+    nan_before = df[feature_cols].isna().sum()
+    nan_cols = nan_before[nan_before > 0]
+    imputed_cols: list[str] = []
+
+    if len(nan_cols) > 0:
+        for col in nan_cols.index:
+            n_nan = int(nan_cols[col])
+            if strategy == "median":
+                fill_val = df[col].median()
+            else:
+                fill_val = df[col].mean()
+            df[col] = df[col].fillna(fill_val)
+            imputed_cols.append(col)
+            print(f"  Imputed {col}: {n_nan} NaN -> {strategy} ({fill_val:.4f})")
+        print(f"  Imputed {len(imputed_cols)} columns with {strategy}")
+    else:
+        print("  No NaN found, imputation not needed.")
+
+    # --- Step 3: Scaling ---
     scaler_type = transform_cfg.get("scaler", "robust")
     if scaler_type == "robust":
         scaler = RobustScaler()
@@ -77,6 +98,8 @@ def transform_features(
     metadata: Dict[str, Any] = {
         "scaler_type": scaler_type,
         "log1p_features": log1p_applied,
+        "imputed_features": imputed_cols,
+        "imputation_strategy": strategy if imputed_cols else "none",
         "scaled_features": scaled_cols,
         "n_features": len(scaled_cols),
     }

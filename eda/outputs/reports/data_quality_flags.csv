@@ -6,13 +6,16 @@ high_missing,B8,,,Missing rate above 20.0%
 high_missing,B11,,,Missing rate above 20.0%
 high_missing,NDVI,,,Missing rate above 20.0%
 high_missing,NDBI,,,Missing rate above 20.0%
+high_missing,MNDWI,,,Missing rate above 20.0%
+high_missing,viirs_mean_x,,,Missing rate above 20.0%
+high_missing,viirs_mean_y,,,Missing rate above 20.0%
 high_missing,S2_NDBI_contrast,,,Missing rate above 20.0%
 high_missing,S2_NDBI_entropy,,,Missing rate above 20.0%
 high_missing,S2_NDBI_homogeneity,,,Missing rate above 20.0%
 glcm_available,S2_NDBI_contrast/entropy/homogeneity,,,"GLCM texture features recomputed for all 65 units — NaN rate now matches spectral bands (~5.6%, cloud cover)"
-high_outlier_rate,S2_NDBI_entropy,,,18.0% outlier rate
-high_outlier_rate,S2_NDBI_homogeneity,,,16.15% outlier rate
-high_outlier_rate,osm_built_area,,,15.38% outlier rate
-high_outlier_rate,osm_building_count,,,15.38% outlier rate
-high_outlier_rate,B3,,,13.68% outlier rate
+high_outlier_rate,slope_std,,,25.0% outlier rate
+high_outlier_rate,viirs_mean_x,,,20.0% outlier rate
+high_outlier_rate,viirs_mean_y,,,20.0% outlier rate
+high_outlier_rate,S2_NDBI_entropy,,,17.47% outlier rate
+high_outlier_rate,S2_NDBI_homogeneity,,,17.3% outlier rate
 temporal_gaps,,,,65 units have temporal gaps

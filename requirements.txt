@@ -2,6 +2,7 @@
 rasterio==1.5.0          # PyPI release Jan 2026 :contentReference[oaicite:2]{index=2}
 scikit-learn==1.8.0      # PyPI release Dec 2025 :contentReference[oaicite:3]{index=3}
 tensorflow==2.20.0       # PyPI latest (as of Aug 2025) :contentReference[oaicite:4]{index=4}
+xgboost==1.7.6          # PyPI release Jan 2026 :contentReference[oaicite:1]{index=1}
 
 # --- GEE integration ---
 earthengine-api==1.7.10  # PyPI release Jan 2026 :contentReference[oaicite:5]{index=5}

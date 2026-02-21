@@ -9,6 +9,7 @@
     "random_forest",
     "gradient_boosting",
     "knn",
-    "mlp"
+    "mlp",
+    "xgboost"
   ]
 }

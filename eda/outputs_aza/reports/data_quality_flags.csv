@@ -1,0 +1,21 @@
+type,feature,unit_id,month,detail
+high_missing,B2,,,Missing rate above 20.0%
+high_missing,B3,,,Missing rate above 20.0%
+high_missing,B4,,,Missing rate above 20.0%
+high_missing,B8,,,Missing rate above 20.0%
+high_missing,B11,,,Missing rate above 20.0%
+high_missing,NDVI,,,Missing rate above 20.0%
+high_missing,NDBI,,,Missing rate above 20.0%
+high_missing,MNDWI,,,Missing rate above 20.0%
+high_missing,slope_mean,,,Missing rate above 20.0%
+high_missing,slope_std,,,Missing rate above 20.0%
+high_missing,aspect_sin_mean,,,Missing rate above 20.0%
+high_missing,aspect_cos_mean,,,Missing rate above 20.0%
+high_missing,age_u15,,,Missing rate above 20.0%
+glcm_available,S2_NDBI_contrast/entropy/homogeneity,,,"aza run (8,826 units x 132 months). S2/index/GLCM NaN ~32% (pre-2018 S2 archive + cloud); slope/aspect ~29% (tiny aza < DEM kernel); demographics ~9-22% (census-join misses)"
+high_outlier_rate,slope_std,,,22.21% outlier rate
+high_outlier_rate,B3,,,16.09% outlier rate
+high_outlier_rate,B2,,,15.91% outlier rate
+high_outlier_rate,B4,,,13.92% outlier rate
+high_outlier_rate,elevation_std,,,10.29% outlier rate
+temporal_gaps,,,,8826 units have temporal gaps

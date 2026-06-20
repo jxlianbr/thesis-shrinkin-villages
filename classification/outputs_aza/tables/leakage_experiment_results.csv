@@ -1,0 +1,41 @@
+,experiment,model,balanced_accuracy
+0,all_features,Gradient Boosting,0.9998950131233596
+1,all_features,XGBoost,0.9998950131233596
+2,all_features,Random Forest,0.9991920436758883
+3,all_features,SVM (Linear),0.9849823932181728
+4,all_features,Logistic Regression,0.9827254436262999
+5,all_features,MLP Neural Network,0.9648317481670665
+6,all_features,SVM (RBF),0.907825073552281
+7,all_features,K-Nearest Neighbors,0.6990277910906658
+8,all_features,Dummy (Most Frequent),0.33333333333333337
+9,all_features,Dummy (Stratified),0.3326360135613857
+10,no_leaky,MLP Neural Network,0.925299332404834
+11,no_leaky,Logistic Regression,0.9171785805437734
+12,no_leaky,SVM (Linear),0.9080822230747703
+13,no_leaky,Gradient Boosting,0.8083359353552619
+14,no_leaky,XGBoost,0.7832829228245798
+15,no_leaky,SVM (RBF),0.6947398300749854
+16,no_leaky,Random Forest,0.6733327076127389
+17,no_leaky,K-Nearest Neighbors,0.5765665163467432
+18,no_leaky,Dummy (Most Frequent),0.33333333333333337
+19,no_leaky,Dummy (Stratified),0.3326360135613857
+20,no_demographic,Random Forest,0.5826780283343242
+21,no_demographic,Gradient Boosting,0.579824903341104
+22,no_demographic,XGBoost,0.5777528927862559
+23,no_demographic,SVM (RBF),0.5711357698346862
+24,no_demographic,Logistic Regression,0.5676525518797376
+25,no_demographic,MLP Neural Network,0.566487336277104
+26,no_demographic,K-Nearest Neighbors,0.54176253235357
+27,no_demographic,SVM (Linear),0.5184660465409912
+28,no_demographic,Dummy (Most Frequent),0.33333333333333337
+29,no_demographic,Dummy (Stratified),0.3326360135613857
+30,rs_only,Random Forest,0.5780041071486344
+31,rs_only,Gradient Boosting,0.5775253305580733
+32,rs_only,XGBoost,0.5761500111998896
+33,rs_only,SVM (RBF),0.565439684822335
+34,rs_only,Logistic Regression,0.5641000283698371
+35,rs_only,MLP Neural Network,0.5630146118266548
+36,rs_only,K-Nearest Neighbors,0.5358289708659154
+37,rs_only,SVM (Linear),0.5223046604906907
+38,rs_only,Dummy (Most Frequent),0.33333333333333337
+39,rs_only,Dummy (Stratified),0.3326360135613857

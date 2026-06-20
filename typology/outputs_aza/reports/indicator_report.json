@@ -1,0 +1,147 @@
+{
+  "n_indicators": 12,
+  "physical_indicators": [
+    "NDBI_slope",
+    "viirs_mean_slope",
+    "S2_NDBI_contrast_slope",
+    "NDVI_cv",
+    "NDVI_seasonal_amp",
+    "NDBI_seasonal_amp",
+    "S2_NDBI_contrast_mean",
+    "S2_NDBI_entropy_mean"
+  ],
+  "demographic_indicators": [
+    "elderly_ratio",
+    "aging_index",
+    "household_size",
+    "pop_total"
+  ],
+  "quality": {
+    "n_missing_total": 486,
+    "missing_per_column": {
+      "viirs_mean_slope": "6",
+      "S2_NDBI_contrast_slope": "166",
+      "S2_NDBI_contrast_mean": "157",
+      "S2_NDBI_entropy_mean": "157"
+    },
+    "near_constant_features": [
+      "NDVI_slope",
+      "youth_ratio"
+    ],
+    "n_outlier_flags": 714,
+    "outlier_flags": {
+      "NDVI_slope": 2,
+      "viirs_mean_slope": 127,
+      "S2_NDBI_contrast_slope": 74,
+      "NDVI_cv": 5,
+      "S2_NDBI_contrast_mean": 24,
+      "S2_NDBI_entropy_mean": 16,
+      "elderly_ratio": 93,
+      "aging_index": 142,
+      "youth_ratio": 86,
+      "household_size": 56,
+      "pop_total": 89
+    },
+    "high_correlation_pairs": [],
+    "summary_stats": {
+      "NDVI_slope": {
+        "mean": 0.2201,
+        "std": 0.0982,
+        "min": -0.0794,
+        "max": 0.4859,
+        "median": 0.2341
+      },
+      "NDBI_slope": {
+        "mean": 0.0045,
+        "std": 0.1108,
+        "min": -0.2418,
+        "max": 0.1918,
+        "median": 0.0194
+      },
+      "viirs_mean_slope": {
+        "mean": -0.9839,
+        "std": 3.3439,
+        "min": -126.4917,
+        "max": 14.9214,
+        "median": -0.2116
+      },
+      "S2_NDBI_contrast_slope": {
+        "mean": -1295.0158,
+        "std": 793.01,
+        "min": -6564.7433,
+        "max": 1900.8809,
+        "median": -1181.6761
+      },
+      "NDVI_cv": {
+        "mean": 1.266,
+        "std": 11.4724,
+        "min": 0.5316,
+        "max": 912.7302,
+        "median": 0.956
+      },
+      "NDVI_seasonal_amp": {
+        "mean": 0.3963,
+        "std": 0.1653,
+        "min": 0.0983,
+        "max": 0.7589,
+        "median": 0.3631
+      },
+      "NDBI_seasonal_amp": {
+        "mean": 0.4587,
+        "std": 0.1413,
+        "min": 0.1863,
+        "max": 0.7769,
+        "median": 0.4175
+      },
+      "S2_NDBI_contrast_mean": {
+        "mean": 3353.186,
+        "std": 1974.4277,
+        "min": 137.0765,
+        "max": 11997.8854,
+        "median": 3095.7122
+      },
+      "S2_NDBI_entropy_mean": {
+        "mean": 3.7595,
+        "std": 0.909,
+        "min": 0.8221,
+        "max": 7.0581,
+        "median": 3.7453
+      },
+      "elderly_ratio": {
+        "mean": 0.4036,
+        "std": 0.1426,
+        "min": 0.0091,
+        "max": 1.8889,
+        "median": 0.3969
+      },
+      "aging_index": {
+        "mean": 6.32,
+        "std": 7.6602,
+        "min": 0.0625,
+        "max": 175.0,
+        "median": 4.3333
+      },
+      "youth_ratio": {
+        "mean": 0.0926,
+        "std": 0.0442,
+        "min": 0.0048,
+        "max": 0.44,
+        "median": 0.0887
+      },
+      "household_size": {
+        "mean": 2.6401,
+        "std": 1.0924,
+        "min": 0.5625,
+        "max": 48.6,
+        "median": 2.5227
+      },
+      "pop_total": {
+        "mean": 293.5529,
+        "std": 510.7242,
+        "min": 6.0,
+        "max": 15724.9975,
+        "median": 138.9999
+      }
+    }
+  }
+}

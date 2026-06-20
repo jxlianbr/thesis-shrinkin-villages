@@ -31,10 +31,18 @@ gee:
   max_parallel_months: 2          # Lower for golden sample to reduce GEE load
 
 data:
+  # Per-unit-level inputs; pipeline selects by run_mode.unit_level.
+  # Flat keys below are kept as a mura fallback for backward compatibility.
   boundaries_path: "admin_demographics/boundaries/mura_jis.gpkg"
   boundaries_layer: "mura"
+  boundaries_path_mura: "admin_demographics/boundaries/mura_jis.gpkg"
+  boundaries_layer_mura: "mura"
+  boundaries_path_aza: "admin_demographics/boundaries/aza.gpkg"
+  boundaries_layer_aza: "aza"
   unit_id_field: "unit_id"
   demographics_path: "admin_demographics/demographics/village_demographics.csv"
+  demographics_path_mura: "admin_demographics/demographics/village_demographics.csv"
+  demographics_path_aza: "admin_demographics/demographics/aza_demographics.csv"
   demographics_unit_id_field: "unit_id"
 
 features:
@@ -59,9 +67,10 @@ labels:
   osm_buildings_path: null        # Will download on first run
 
 outputs:
-  features_table_csv: "outputs/golden_sample/features_table.csv"
-  features_table_parquet: "outputs/golden_sample/features_table.parquet"
-  run_manifest_json: "outputs/golden_sample/run_manifest.json"
+  # {unit_level} is substituted at runtime so mura/aza runs do not overwrite each other.
+  features_table_csv: "outputs/golden_sample/features_table_{unit_level}.csv"
+  features_table_parquet: "outputs/golden_sample/features_table_{unit_level}.parquet"
+  run_manifest_json: "outputs/golden_sample/run_manifest_{unit_level}.json"
   export_map_rasters: true        # Export visualization rasters for AOI_GOLDEN
   map_rasters_dir: "outputs/golden_sample/rasters/map_figures"
 

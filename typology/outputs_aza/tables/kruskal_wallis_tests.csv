@@ -1,0 +1,13 @@
+,indicator,h_statistic,p_value,significant_005
+0,NDBI_slope,2613.6843,0.0,True
+1,viirs_mean_slope,1084.679,0.0,True
+2,S2_NDBI_contrast_slope,370.6345,0.0,True
+3,NDVI_cv,765.1568,0.0,True
+4,NDVI_seasonal_amp,978.5497,0.0,True
+5,NDBI_seasonal_amp,3304.6381,0.0,True
+6,S2_NDBI_contrast_mean,3784.5547,0.0,True
+7,S2_NDBI_entropy_mean,2594.4717,0.0,True
+8,elderly_ratio,1864.926,0.0,True
+9,aging_index,1326.1477,0.0,True
+10,household_size,1054.6055,0.0,True
+11,pop_total,214.1303,0.0,True

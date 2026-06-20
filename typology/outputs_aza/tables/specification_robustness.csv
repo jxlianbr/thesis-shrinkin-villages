@@ -1,0 +1,5 @@
+,specification,n_features,features_used,ari_vs_primary,nmi_vs_primary,silhouette
+0,physical_only,7,"viirs_mean_slope, S2_NDBI_contrast_slope, NDVI_cv, NDVI_seasonal_amp, NDBI_seasonal_amp, S2_NDBI_contrast_mean, S2_NDBI_entropy_mean",0.442,0.3567,0.197
+1,demographic_only,3,"elderly_ratio, household_size, pop_total",0.1174,0.1175,0.3322
+2,trend_only,3,"viirs_mean_slope, S2_NDBI_contrast_slope, NDVI_cv",0.0141,0.0264,0.3961
+3,level_only,7,"S2_NDBI_contrast_mean, S2_NDBI_entropy_mean, NDVI_seasonal_amp, NDBI_seasonal_amp, elderly_ratio, household_size, pop_total",0.837,0.792,0.2247

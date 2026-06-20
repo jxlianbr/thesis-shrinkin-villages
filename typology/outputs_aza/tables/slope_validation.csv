@@ -1,0 +1,4 @@
+,slope_feature,pearson_r,p_value,n_valid
+0,NDVI_slope,1.0,0.0,7448
+1,NDBI_slope,1.0,0.0,7448
+2,viirs_mean_slope,1.0,0.0,7442

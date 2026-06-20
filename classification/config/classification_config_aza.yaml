@@ -129,10 +129,18 @@ feature_selection:
 
 # --- Cross-validation ---
 cross_validation:
-  strategy: "repeated_stratified_kfold"
+  strategy: "stratified_group_kfold"
   n_splits: 5
   n_repeats: 5
   random_state: 42
+  # Spatial blocking: group aza by parent municipality (mura) so that all aza
+  # within a municipality fall in the same fold. Aza nested in one municipality
+  # are spatially adjacent and autocorrelated; random stratified folds would let
+  # near-identical neighbours sit in both train and test, inflating accuracy.
+  # Grouped CV measures generalisation to municipalities the model never saw.
+  grouping:
+    enabled: true
+    field: "muni"
   loo_check:
     # Disabled for aza: leave-one-out is a small-n (mura, 65) robustness check.
     # At n~7448 it is ~22k refits and statistically redundant with 5x5 CV.

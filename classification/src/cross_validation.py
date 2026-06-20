@@ -23,7 +23,53 @@ from sklearn.metrics import (
 from sklearn.model_selection import (
     LeaveOneOut,
     RepeatedStratifiedKFold,
+    StratifiedGroupKFold,
 )
+
+
+def _build_splits(
+    X_arr: np.ndarray,
+    y_arr: np.ndarray,
+    groups: np.ndarray | None,
+    cv_cfg: Dict[str, Any],
+) -> tuple[list, str]:
+    """
+    Build the list of (train_idx, test_idx) folds.
+
+    When ``cross_validation.grouping.enabled`` is set and a ``groups`` vector is
+    supplied, folds are produced with StratifiedGroupKFold so that every sample
+    sharing a group (here: the parent municipality / mura) stays within a single
+    fold. Because aza nested in the same municipality are spatially adjacent and
+    autocorrelated, this is a spatial block that prevents neighbours from leaking
+    between train and test. Repeats are emulated by reshuffling across seeds.
+
+    Otherwise the original RepeatedStratifiedKFold behaviour is preserved (used
+    by the mura run, which does not enable grouping).
+    """
+    n_splits = cv_cfg["n_splits"]
+    n_repeats = cv_cfg["n_repeats"]
+    rs = cv_cfg["random_state"]
+    grouping = cv_cfg.get("grouping") or {}
+
+    if grouping.get("enabled") and groups is not None:
+        splits: list = []
+        for r in range(n_repeats):
+            sgkf = StratifiedGroupKFold(
+                n_splits=n_splits, shuffle=True, random_state=rs + r,
+            )
+            splits.extend(list(sgkf.split(X_arr, y_arr, groups=groups)))
+        n_groups = len(set(groups.tolist()))
+        field = grouping.get("field", "group")
+        strategy = (
+            f"StratifiedGroupKFold grouped by {field} "
+            f"({n_groups} groups; spatially blocked)"
+        )
+        return splits, strategy
+
+    rskf = RepeatedStratifiedKFold(
+        n_splits=n_splits, n_repeats=n_repeats, random_state=rs,
+    )
+    return list(rskf.split(X_arr, y_arr)), "RepeatedStratifiedKFold"
 
 
 # ------------------------------------------------------------------ #
@@ -53,6 +99,7 @@ def run_cross_validation(
     y: pd.Series,
     models: Dict[str, Dict[str, Any]],
     cfg: Dict[str, Any],
+    groups: np.ndarray | None = None,
 ) -> Dict[str, Any]:
     """
     Run Repeated Stratified K-Fold CV for every model.
@@ -76,17 +123,13 @@ def run_cross_validation(
     cv_cfg = cfg["cross_validation"]
     n_splits = cv_cfg["n_splits"]
     n_repeats = cv_cfg["n_repeats"]
-    rs = cv_cfg["random_state"]
-
-    rskf = RepeatedStratifiedKFold(
-        n_splits=n_splits, n_repeats=n_repeats, random_state=rs,
-    )
-    total_folds = n_splits * n_repeats
-    print(f"Cross-validation: {n_splits}-fold x {n_repeats} repeats "
-          f"= {total_folds} evaluations")
 
     X_arr = X.values
     y_arr = y.values
+
+    splits, strategy = _build_splits(X_arr, y_arr, groups, cv_cfg)
+    print(f"Cross-validation: {strategy} -- {n_splits}-fold x {n_repeats} "
+          f"repeats = {len(splits)} evaluations")
 
     results: Dict[str, Any] = {}
 
@@ -100,7 +143,7 @@ def run_cross_validation(
         all_y_prob: list[np.ndarray] = []
         has_proba = hasattr(model_info["estimator"], "predict_proba")
 
-        for train_idx, test_idx in rskf.split(X_arr, y_arr):
+        for train_idx, test_idx in splits:
             estimator = deepcopy(model_info["estimator"])
             X_train, X_test = X_arr[train_idx], X_arr[test_idx]
             y_train, y_test = y_arr[train_idx], y_arr[test_idx]

@@ -214,6 +214,11 @@ def _ols_regression(
         result["dependent_var"] = dv
         result["n_obs"] = n
         result["n_predictors_initial"] = len(physical_names)
+        # Boolean mask (in raw-indicator row order) of the rows that survived
+        # NaN filtering and therefore correspond to `residuals`. Needed to align
+        # residuals with boundary geometries for spatial autocorrelation when
+        # some units have missing predictors (true at aza scale).
+        result["valid_mask"] = valid
 
         all_results[dv] = result
 
@@ -400,34 +405,80 @@ def _spatial_analysis(
               "Install with: pip install libpysal esda spreg")
         return {"skipped": True, "reason": "libpysal_not_installed"}
 
-    # Align boundaries with identifiers
+    import geopandas as gpd
+
+    # `residuals` come from the OLS, which dropped NaN rows (valid_mask) in the
+    # raw-indicator row order. The boundary set may contain multi-part polygons
+    # sharing a unit_id (true for aza), which would explode set_index().loc, and
+    # residuals are a NaN-filtered subset of all units. Align all three here.
+    if raw is None or "unit_id" not in getattr(raw, "columns", []):
+        print("    WARNING: Cannot map residuals to units (no raw unit_id)")
+        return {"skipped": True, "reason": "unit_mapping_unavailable"}
+
     gdf = boundaries.copy()
-    if "unit_id" in gdf.columns and "unit_id" in identifiers.columns:
-        unit_order = identifiers["unit_id"].tolist()
-        gdf = gdf.set_index("unit_id").loc[unit_order].reset_index()
-    else:
-        print("    WARNING: Cannot align boundaries with data")
-        return {"skipped": True, "reason": "alignment_failed"}
+    if "unit_id" not in gdf.columns:
+        print("    WARNING: boundaries have no unit_id")
+        return {"skipped": True, "reason": "no_unit_id_in_boundaries"}
 
-    # Ensure projected CRS for queen contiguity
-    if gdf.crs and gdf.crs.is_geographic:
+    n_dup = int(gdf["unit_id"].duplicated().sum())
+    if n_dup:
+        print(f"    Deduplicated {n_dup} multi-part boundary rows on unit_id")
+        gdf = gdf.drop_duplicates(subset="unit_id")
+
+    unit_ids_full = np.asarray(raw["unit_id"].values)
+    in_bounds = np.isin(unit_ids_full, gdf["unit_id"].values)
+    if not in_bounds.all():
+        print(f"    WARNING: {int((~in_bounds).sum())} units lack geometry")
+
+    gdf_indexed = gdf.set_index("unit_id")
+
+    # Boundaries aligned row-for-row with raw (consumed by _spatial_regression).
+    gdf_proj = gdf_indexed.reindex(unit_ids_full[in_bounds]).reset_index()
+    if gdf_proj.crs and gdf_proj.crs.is_geographic:
         try:
-            gdf_proj = gdf.to_crs(epsg=6690)  # JGD2011 Japan zone
+            gdf_proj = gdf_proj.to_crs(epsg=6690)  # JGD2011 Japan zone
         except Exception:
-            gdf_proj = gdf  # proceed anyway
-    else:
-        gdf_proj = gdf
+            pass
 
-    # Build spatial weights
+    # Residual <-> unit alignment for Moran's I.
+    valid_mask = (regression_results or {}).get("valid_mask")
+    if valid_mask is not None and len(valid_mask) == len(unit_ids_full):
+        valid_positions = np.where(np.asarray(valid_mask, dtype=bool))[0]
+    else:
+        valid_positions = np.arange(len(unit_ids_full))
+
+    resid_arr = np.asarray(residuals)
+    if len(valid_positions) != len(resid_arr):
+        if len(resid_arr) == len(unit_ids_full):
+            valid_positions = np.arange(len(unit_ids_full))
+        else:
+            print(f"    WARNING: residual/unit mismatch "
+                  f"({len(resid_arr)} vs {len(valid_positions)}); skipping")
+            return {"skipped": True, "reason": "residual_alignment_failed"}
+
+    # Keep residual units that have geometry, preserving order.
+    keep = in_bounds[valid_positions]
+    resid_aligned = resid_arr[keep]
+    moran_unit_ids = unit_ids_full[valid_positions][keep]
+
+    # Build weights: one on the exact Moran subset, one on the full aligned set.
     try:
+        gdf_moran = gdf_indexed.reindex(moran_unit_ids).reset_index()
+        if gdf_moran.crs and gdf_moran.crs.is_geographic:
+            try:
+                gdf_moran = gdf_moran.to_crs(epsg=6690)
+            except Exception:
+                pass
+        w_moran = Queen.from_dataframe(gdf_moran)
+        w_moran.transform = "r"
         w = Queen.from_dataframe(gdf_proj)
         w.transform = "r"  # Row-standardize
     except Exception as e:
         print(f"    WARNING: Could not build spatial weights: {e}")
         return {"skipped": True, "reason": f"weights_failed: {e}"}
 
-    # Moran's I
-    mi = Moran(residuals, w)
+    # Moran's I on aligned residuals with matching weights.
+    mi = Moran(resid_aligned, w_moran)
     print(f"    Moran's I: {mi.I:.4f}, p={mi.p_sim:.4f}")
 
     result: Dict[str, Any] = {
@@ -438,8 +489,10 @@ def _spatial_analysis(
         "significant": mi.p_sim < 0.05,
     }
 
-    # Spatial regression if Moran's I is significant
-    if mi.p_sim < 0.05 and cfg["relationships"]["spatial"]["enabled"]:
+    # Spatial regression if Moran's I is significant. Requires boundaries that
+    # align row-for-row with raw (every unit has geometry); skip otherwise.
+    if (mi.p_sim < 0.05 and cfg["relationships"]["spatial"]["enabled"]
+            and bool(in_bounds.all())):
         print("    Spatial autocorrelation detected -- fitting spatial regression")
         spatial_reg = _spatial_regression(
             gdf_proj, w, cfg,

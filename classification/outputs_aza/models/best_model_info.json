@@ -1,0 +1,15 @@
+{
+  "note": "Best model determined from comparison_table in reports/",
+  "models_saved": [
+    "dummy_most_frequent",
+    "dummy_stratified",
+    "logistic_regression",
+    "svm_linear",
+    "svm_rbf",
+    "random_forest",
+    "gradient_boosting",
+    "knn",
+    "mlp",
+    "xgboost"
+  ]
+}

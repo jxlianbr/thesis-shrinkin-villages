@@ -22,13 +22,21 @@ gee:
   use_batching: true
   batch_size: 500
   max_retries: 3
-  max_parallel_months: 6
+  max_parallel_months: 10
 
 data:
+  # Per-unit-level inputs; pipeline selects by run_mode.unit_level.
+  # Flat keys below are kept as a mura fallback for backward compatibility.
   boundaries_path: "admin_demographics/boundaries/mura_jis_fix.gpkg"
   boundaries_layer: "mura"
+  boundaries_path_mura: "admin_demographics/boundaries/mura_jis_fix.gpkg"
+  boundaries_layer_mura: "mura"
+  boundaries_path_aza: "admin_demographics/boundaries/aza.gpkg"
+  boundaries_layer_aza: "aza"
   unit_id_field: "unit_id"
   demographics_path: "admin_demographics/demographics/village_demographics.csv"
+  demographics_path_mura: "admin_demographics/demographics/village_demographics.csv"
+  demographics_path_aza: "admin_demographics/demographics/aza_demographics.csv"
   demographics_unit_id_field: "unit_id"
 
 features:
@@ -54,9 +62,10 @@ labels:
   osm_buildings_path: null        # null = download on demand, or provide path to cached .gpkg
 
 outputs:
-  features_table_csv: "outputs/final/features_table.csv"
-  features_table_parquet: "outputs/final/features_table.parquet"
-  run_manifest_json: "outputs/final/run_manifest.json"
+  # {unit_level} is substituted at runtime so mura/aza runs do not overwrite each other.
+  features_table_csv: "outputs/final/features_table_{unit_level}.csv"
+  features_table_parquet: "outputs/final/features_table_{unit_level}.parquet"
+  run_manifest_json: "outputs/final/run_manifest_{unit_level}.json"
   export_map_rasters: true        # Export visualization rasters for AOI_GOLDEN
   map_rasters_dir: "outputs/rasters/map_figures"
 
@@ -84,9 +93,11 @@ aoi:
     - "mura:Akita:05363"   # 18 km2, smallest
     - "mura:Akita:05215"   # 1093 km2, largest
     - "mura:Akita:05207"   # 790 km2, southernmost
+  # Optional aza golden subset (only used when features.glcm_restrict_to_golden=true at aza level).
+  golden_unit_ids_aza: []
 
 run_mode:
-  unit_level: "mura"              # "mura" or "aza"
+  unit_level: "aza"              # "mura" or "aza"
   fast_dev: false
   months_override: null           # null = use time.start/end, or list like ["2020-01", "2020-02"]
   unit_sample_n: 0                # 0 = all units, >0 = first N units (for testing)

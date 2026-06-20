@@ -1,0 +1,149 @@
+# =============================================================================
+# Typology Pipeline Configuration -- Shrinking Villages
+# =============================================================================
+
+# --- Data sources ---
+data:
+  classification_ready_path: "preprocessing/outputs/classification_ready_aza.parquet"
+  features_table_path: "outputs/final/features_table_aza.parquet"
+  boundaries_path: "admin_demographics/boundaries/aza.gpkg"
+  feature_metadata_path: "preprocessing/outputs/feature_metadata_aza.csv"
+  preprocessing_report_path: "preprocessing/outputs/preprocessing_report_aza.json"
+  # Optional: classification results for built-up change rate
+  classification_results_path: "outputs/maps/classification_results.parquet"
+
+# --- Output directories ---
+output:
+  base_dir: "typology/outputs_aza"
+  figures_dir: "typology/outputs_aza/figures"
+  tables_dir: "typology/outputs_aza/tables"
+  reports_dir: "typology/outputs_aza/reports"
+
+# --- Column roles ---
+columns:
+  identifiers: [unit_id, pref_name]
+  target: "shrinkage_class"
+  target_code: "shrinkage_code"
+  class_labels: ["stable", "shrinking", "severely_shrinking"]
+  class_codes: [0, 1, 2]
+
+# --- Step 1: Indicator configuration ---
+indicators:
+  # Physical indicators recomputed from raw monthly panel data
+  physical:
+    # Trend slopes (OLS on normalised time)
+    trend_features: [NDVI, NDBI, viirs_mean, S2_NDBI_contrast]
+    # Coefficient of variation
+    cv_features: [NDVI]
+    # Seasonal amplitude (max - min of monthly means)
+    seasonal_features: [NDVI, NDBI]
+    # Temporal mean of GLCM features
+    glcm_mean_features: [S2_NDBI_contrast, S2_NDBI_entropy]
+    # Minimum valid months for trend computation
+    min_months_for_trend: 12
+
+  # Demographic indicators (inverse-transformed from classification_ready)
+  demographic: [elderly_ratio, aging_index, youth_ratio, household_size, pop_total]
+
+  # Quality thresholds
+  quality:
+    outlier_sd_threshold: 3.0
+    min_variance: 0.01
+
+  # Redundancy pruning (applied after quality checks, before standardisation)
+  pruning:
+    enabled: true
+    correlation_threshold: 0.85   # iteratively drop worst in pairs above this
+    drop_near_constant: true      # drop features with var < min_variance
+    keep_list: [elderly_ratio]    # never drop these even if near-constant
+
+# --- Step 2: Clustering configuration ---
+clustering:
+  pca:
+    variance_thresholds: [0.80, 0.90, 0.95]
+
+  kmeans:
+    k_range: [2, 3, 4, 5, 6, 7, 8]
+    n_init: 100
+    max_iter: 300
+
+  hierarchical:
+    method: "ward"
+
+  gap_statistic:
+    n_references: 50
+
+  bootstrap:
+    n_resamples: 1000
+    sample_fraction: 0.80
+
+  perturbation:
+    enabled: true
+
+  # Specification robustness: recluster with alternative indicator subsets
+  specification_robustness:
+    enabled: true
+    specifications:
+      physical_only: [NDVI_slope, viirs_mean_slope, S2_NDBI_contrast_slope, NDVI_cv, NDVI_seasonal_amp, NDBI_seasonal_amp, S2_NDBI_contrast_mean, S2_NDBI_entropy_mean]
+      demographic_only: [elderly_ratio, household_size, pop_total]
+      trend_only: [NDVI_slope, viirs_mean_slope, S2_NDBI_contrast_slope, NDVI_cv]
+      level_only: [S2_NDBI_contrast_mean, S2_NDBI_entropy_mean, NDVI_seasonal_amp, NDBI_seasonal_amp, elderly_ratio, household_size, pop_total]
+
+  # Multi-k reporting: present several solutions for thesis comparison
+  report_k_values: [3, 4, 5]       # always report these k values
+  include_data_driven_k: true       # also report majority-vote k if different
+  max_k_for_selection: 5            # cap automatic k selection
+
+  # PCA-based clustering as alternative to raw-space clustering
+  pca_clustering:
+    enabled: true
+    variance_threshold: 0.80        # use PCs explaining this much variance
+
+# --- Step 3: Relationship analysis ---
+relationships:
+  correlation:
+    methods: [pearson, spearman]
+    alpha: 0.05
+
+  regression:
+    dependent_vars: [elderly_ratio, pop_total]
+    predictors: "physical"
+    vif_threshold: 5.0
+
+  spatial:
+    enabled: true
+    weights: "queen"
+
+  subgroup:
+    by_cluster: true
+    min_group_size_for_regression: 15
+
+# --- Visualization ---
+plot:
+  dpi: 300
+  figsize_single: [8, 6]
+  figsize_wide: [14, 6]
+  figsize_tall: [10, 12]
+  figsize_heatmap: [10, 8]
+  style: "seaborn-v0_8-whitegrid"
+  palette: "viridis"
+  font_size: 11
+  title_size: 13
+  save_formats: [pdf, png]
+  class_colors:
+    stable: "#4CAF50"
+    shrinking: "#FF9800"
+    severely_shrinking: "#F44336"
+  prefecture_colors:
+    Aomori: "#2196F3"
+    Akita: "#FF9800"
+  cluster_palette: "Set2"
+
+# --- Report ---
+report:
+  title: "Shrinkage Typology Report: Aomori & Akita Prefectures"
+  author: "Julian"
+  generate_html: true
+
+# --- Reproducibility ---
+random_state: 42

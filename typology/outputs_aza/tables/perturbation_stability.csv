@@ -1,0 +1,13 @@
+,dropped_feature,ari,fraction_changed
+6,S2_NDBI_contrast_mean,0.2701,0.3982
+0,NDBI_slope,0.6303,0.9777
+5,NDBI_seasonal_amp,0.6589,0.9863
+7,S2_NDBI_entropy_mean,0.6958,0.5913
+8,elderly_ratio,0.7734,0.5583
+2,S2_NDBI_contrast_slope,0.8487,0.0459
+1,viirs_mean_slope,0.9037,0.7985
+9,aging_index,0.906,0.0285
+10,household_size,0.9508,0.5411
+4,NDVI_seasonal_amp,0.9605,0.6476
+3,NDVI_cv,0.9883,0.6396
+11,pop_total,0.9917,0.9992

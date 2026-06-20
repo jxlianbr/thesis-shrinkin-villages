@@ -1,0 +1,55 @@
+data:
+  features_table: "outputs/final/features_table_aza.parquet"
+  boundaries_path: "admin_demographics/boundaries/aza.gpkg"
+
+output:
+  base_dir: "eda/outputs_aza"
+  figures_dir: "eda/outputs_aza/figures"
+  tables_dir: "eda/outputs_aza/tables"
+  reports_dir: "eda/outputs_aza/reports"
+
+columns:
+  identifiers: [unit_id, unit_level, unit_code, pref_name, month]
+  spectral: [B2, B3, B4, B8, B11]
+  indices: [NDVI, NDBI, MNDWI]
+  texture: [S2_NDBI_contrast, S2_NDBI_entropy, S2_NDBI_homogeneity]
+  nightlights: [viirs_mean]
+  lulc: [dw_water_frac, dw_trees_frac, dw_grass_frac, dw_flooded_vegetation_frac, dw_crops_frac, dw_shrub_and_scrub_frac, dw_built_frac, dw_bare_frac, dw_snow_and_ice_frac]
+  osm: [osm_built_area, osm_building_count, osm_built_ratio]
+  demographic: [pop_total, pop_male, pop_female, households_total, age_u15, age_15_64, age_65_plus, age_75_plus]
+  # Columns excluded from numeric analysis
+  meta_only: [muni_code, city_name_ja, unit_level, unit_code, households_total_from_popfile]
+
+feature_groups:
+  remote_sensing: [B2, B3, B4, B8, B11, NDVI, NDBI, MNDWI, S2_NDBI_contrast, S2_NDBI_entropy, S2_NDBI_homogeneity, viirs_mean]
+  land_cover: [dw_water_frac, dw_trees_frac, dw_grass_frac, dw_flooded_vegetation_frac, dw_crops_frac, dw_shrub_and_scrub_frac, dw_built_frac, dw_bare_frac, dw_snow_and_ice_frac]
+  built_environment: [osm_built_area, osm_building_count, osm_built_ratio]
+  demographic: [pop_total, pop_male, pop_female, households_total, age_u15, age_15_64, age_65_plus, age_75_plus]
+
+analysis:
+  outlier_method: "iqr"
+  outlier_iqr_factor: 1.5
+  outlier_zscore_threshold: 3.0
+  correlation_threshold: 0.8
+  missing_threshold: 0.20
+  glcm_nan_note: "aza run (8,826 units x 132 months). S2/index/GLCM NaN ~32% (pre-2018 S2 archive + cloud); slope/aspect ~29% (tiny aza < DEM kernel); demographics ~9-22% (census-join misses)"
+
+plot:
+  dpi: 300
+  figsize_single: [8, 6]
+  figsize_wide: [14, 6]
+  figsize_heatmap: [12, 10]
+  style: "seaborn-v0_8-whitegrid"
+  palette: "viridis"
+  font_size: 11
+  title_size: 13
+  save_formats: [png]
+  prefecture_colors:
+    Aomori: "#2196F3"
+    Akita: "#FF9800"
+
+report:
+  title: "EDA Report: Shrinking Villages Feature Table"
+  author: "Julian"
+  generate_html: true
+  generate_pdf: false

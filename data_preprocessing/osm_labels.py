@@ -79,8 +79,14 @@ out skel qt;
         url = "https://overpass-api.de/api/interpreter"
         data = query.encode("utf-8")
 
-        req = urllib.request.Request(url, data=data, method="POST")
-        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        # Overpass rejects the default Python-urllib agent with HTTP 406;
+        # send a descriptive User-Agent (per Overpass usage policy) plus Accept.
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "shrinking-villages-thesis/1.0 (academic research)",
+            "Accept": "application/json",
+        }
+        req = urllib.request.Request(url, data=data, method="POST", headers=headers)
 
         max_retries = 3
         result = None
@@ -96,8 +102,7 @@ out skel qt;
                     print(f"  Retrying in {delay}s...")
                     time.sleep(delay)
                     # Rebuild request (urlopen consumes it)
-                    req = urllib.request.Request(url, data=data, method="POST")
-                    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+                    req = urllib.request.Request(url, data=data, method="POST", headers=headers)
                 else:
                     print(f"  Warning: Failed to download {pref} after {max_retries} attempts: {e}")
 

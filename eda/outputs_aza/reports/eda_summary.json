@@ -1,0 +1,347 @@
+{
+  "schema_warnings": [
+    "Extra columns not in config: ['elevation_mean', 'elevation_std', 'slope_mean', 'slope_std', 'aspect_sin_mean', 'aspect_cos_mean', 'tri_mean', 'dw_water_frac', 'dw_trees_frac', 'dw_grass_frac', 'dw_flooded_vegetation_frac', 'dw_crops_frac', 'dw_shrub_and_scrub_frac', 'dw_built_frac', 'dw_bare_frac', 'dw_snow_and_ice_frac']"
+  ],
+  "summary_stats": {
+    "row_count": 1165032,
+    "column_count": 50,
+    "numeric_feature_count": 41,
+    "unit_count": 8826,
+    "month_range": {
+      "min": "2015-01",
+      "max": "2025-12"
+    },
+    "prefectures": [
+      "Akita",
+      "Aomori"
+    ],
+    "most_variable_features": {
+      "osm_built_area": 50993.85803631307,
+      "S2_NDBI_contrast": 2367.028999004873,
+      "B4": 1598.6984932662594,
+      "B8": 1560.429654704958,
+      "B2": 1558.7645955421635
+    },
+    "most_skewed_features": {
+      "slope_std": 18.27078606301269,
+      "osm_built_area": 13.35567518258971,
+      "osm_building_count": 13.333221165638399,
+      "age_u15": 12.904861091584282,
+      "viirs_mean": 10.722313396119882
+    }
+  },
+  "missing_data": {
+    "overall_missing_pct": 13.19,
+    "columns_above_threshold": [
+      "B2",
+      "B3",
+      "B4",
+      "B8",
+      "B11",
+      "NDVI",
+      "NDBI",
+      "MNDWI",
+      "slope_mean",
+      "slope_std",
+      "aspect_sin_mean",
+      "aspect_cos_mean",
+      "age_u15"
+    ],
+    "glcm_note": "aza run (8,826 units x 132 months). S2/index/GLCM NaN ~32% (pre-2018 S2 archive + cloud); slope/aspect ~29% (tiny aza < DEM kernel); demographics ~9-22% (census-join misses)",
+    "threshold_pct": 20.0
+  },
+  "distributions": {
+    "non_normal_features": [
+      "B2",
+      "B3",
+      "B4",
+      "B8",
+      "B11",
+      "NDVI",
+      "NDBI",
+      "MNDWI",
+      "viirs_mean",
+      "S2_NDBI_contrast",
+      "S2_NDBI_entropy",
+      "S2_NDBI_homogeneity",
+      "dw_water_frac",
+      "dw_trees_frac",
+      "dw_grass_frac",
+      "dw_flooded_vegetation_frac",
+      "dw_crops_frac",
+      "dw_shrub_and_scrub_frac",
+      "dw_built_frac",
+      "dw_bare_frac",
+      "dw_snow_and_ice_frac",
+      "pop_total",
+      "pop_male",
+      "pop_female",
+      "households_total",
+      "age_u15",
+      "age_15_64",
+      "age_65_plus",
+      "age_75_plus",
+      "osm_built_area",
+      "osm_building_count",
+      "osm_built_ratio"
+    ],
+    "features_needing_transform": [
+      "B2",
+      "B3",
+      "B4",
+      "B8",
+      "viirs_mean",
+      "dw_water_frac",
+      "dw_grass_frac",
+      "dw_flooded_vegetation_frac",
+      "dw_crops_frac",
+      "dw_bare_frac",
+      "pop_total",
+      "pop_male",
+      "pop_female",
+      "households_total",
+      "age_u15",
+      "age_15_64",
+      "age_65_plus",
+      "age_75_plus",
+      "osm_built_area",
+      "osm_building_count",
+      "osm_built_ratio"
+    ],
+    "n_analysed": 32
+  },
+  "correlations": {
+    "n_features": 41,
+    "highly_correlated_pairs": [
+      {
+        "pair": "B3 -- B4",
+        "feature_1": "B3",
+        "feature_2": "B4",
+        "correlation": 0.9984,
+        "abs_correlation": 0.9984
+      },
+      {
+        "pair": "pop_total -- pop_female",
+        "feature_1": "pop_total",
+        "feature_2": "pop_female",
+        "correlation": 0.9979,
+        "abs_correlation": 0.9979
+      },
+      {
+        "pair": "pop_total -- pop_male",
+        "feature_1": "pop_total",
+        "feature_2": "pop_male",
+        "correlation": 0.9974,
+        "abs_correlation": 0.9974
+      },
+      {
+        "pair": "B2 -- B3",
+        "feature_1": "B2",
+        "feature_2": "B3",
+        "correlation": 0.9969,
+        "abs_correlation": 0.9969
+      },
+      {
+        "pair": "pop_male -- age_15_64",
+        "feature_1": "pop_male",
+        "feature_2": "age_15_64",
+        "correlation": 0.9939,
+        "abs_correlation": 0.9939
+      },
+      {
+        "pair": "B2 -- B4",
+        "feature_1": "B2",
+        "feature_2": "B4",
+        "correlation": 0.9938,
+        "abs_correlation": 0.9938
+      },
+      {
+        "pair": "pop_total -- age_15_64",
+        "feature_1": "pop_total",
+        "feature_2": "age_15_64",
+        "correlation": 0.9918,
+        "abs_correlation": 0.9918
+      },
+      {
+        "pair": "pop_male -- pop_female",
+        "feature_1": "pop_male",
+        "feature_2": "pop_female",
+        "correlation": 0.9906,
+        "abs_correlation": 0.9906
+      },
+      {
+        "pair": "age_65_plus -- age_75_plus",
+        "feature_1": "age_65_plus",
+        "feature_2": "age_75_plus",
+        "correlation": 0.9881,
+        "abs_correlation": 0.9881
+      },
+      {
+        "pair": "pop_female -- age_15_64",
+        "feature_1": "pop_female",
+        "feature_2": "age_15_64",
+        "correlation": 0.9854,
+        "abs_correlation": 0.9854
+      }
+    ],
+    "top_rs_demo_associations": [
+      {
+        "rs_feature": "osm_building_count",
+        "demo_feature": "age_75_plus",
+        "correlation": 0.6353
+      },
+      {
+        "rs_feature": "osm_building_count",
+        "demo_feature": "age_65_plus",
+        "correlation": 0.6349
+      },
+      {
+        "rs_feature": "osm_built_area",
+        "demo_feature": "age_75_plus",
+        "correlation": 0.6174
+      },
+      {
+        "rs_feature": "osm_built_area",
+        "demo_feature": "age_65_plus",
+        "correlation": 0.6114
+      },
+      {
+        "rs_feature": "osm_building_count",
+        "demo_feature": "pop_female",
+        "correlation": 0.602
+      },
+      {
+        "rs_feature": "osm_building_count",
+        "demo_feature": "pop_total",
+        "correlation": 0.5993
+      },
+      {
+        "rs_feature": "osm_building_count",
+        "demo_feature": "pop_male",
+        "correlation": 0.5928
+      },
+      {
+        "rs_feature": "osm_built_area",
+        "demo_feature": "pop_male",
+        "correlation": 0.5834
+      },
+      {
+        "rs_feature": "osm_building_count",
+        "demo_feature": "households_total",
+        "correlation": 0.5804
+      },
+      {
+        "rs_feature": "osm_built_area",
+        "demo_feature": "pop_total",
+        "correlation": 0.5803
+      }
+    ],
+    "correlation_threshold": 0.8
+  },
+  "temporal": {
+    "coverage_summary": {
+      "mean_months_per_unit": 90.0,
+      "min_months": 74,
+      "units_with_gaps": 8826
+    },
+    "seasonal_amplitude": {
+      "NDVI": 0.3471,
+      "NDBI": 0.355
+    },
+    "trend_directions": {
+      "NDVI": "increasing",
+      "NDBI": "increasing",
+      "viirs_mean": "decreasing"
+    }
+  },
+  "spatial": {
+    "n_units_mapped": 9031,
+    "by_prefecture": {
+      "Akita": {
+        "n_units": 4330,
+        "mean_ndvi": 0.1966,
+        "mean_viirs": 3.3291,
+        "mean_pop": 241.7
+      },
+      "Aomori": {
+        "n_units": 4496,
+        "mean_ndvi": 0.2169,
+        "mean_viirs": 6.0125,
+        "mean_pop": 303.1
+      }
+    }
+  },
+  "outliers": {
+    "total_outlier_observations": 2288963,
+    "features_with_outliers": 34,
+    "most_affected_features": [
+      {
+        "feature": "slope_std",
+        "outlier_pct": 22.21
+      },
+      {
+        "feature": "B3",
+        "outlier_pct": 16.09
+      },
+      {
+        "feature": "B2",
+        "outlier_pct": 15.91
+      },
+      {
+        "feature": "B4",
+        "outlier_pct": 13.92
+      },
+      {
+        "feature": "elevation_std",
+        "outlier_pct": 10.29
+      }
+    ],
+    "most_affected_units": [
+      {
+        "unit_id": "aza:Akita:052070750",
+        "outlier_count": 2104
+      },
+      {
+        "unit_id": "aza:Akita:052150030",
+        "outlier_count": 2098
+      },
+      {
+        "unit_id": "aza:Akita:052090050",
+        "outlier_count": 2080
+      },
+      {
+        "unit_id": "aza:Akita:052090040",
+        "outlier_count": 2079
+      },
+      {
+        "unit_id": "aza:Akita:052041190",
+        "outlier_count": 2052
+      }
+    ],
+    "method": "IQR \u00d7 1.5"
+  },
+  "feature_relationships": {
+    "key_relationships": [
+      {
+        "x": "NDVI",
+        "y": "pop_total",
+        "r": 0.0152
+      },
+      {
+        "x": "viirs_mean",
+        "y": "pop_total",
+        "r": 0.1449
+      },
+      {
+        "x": "NDBI",
+        "y": "pop_total",
+        "r": -0.0212
+      },
+      {
+        "x": "viirs_mean",
+        "y": "elderly_ratio",
+        "r": -0.3081
+      }
+    ]
+  }
+}

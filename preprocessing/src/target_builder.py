@@ -42,6 +42,18 @@ def build_target(
         raise ValueError("elderly_ratio column required but not found. "
                          "Run feature_engineering first.")
 
+    # Units with no valid elderly_ratio (missing/zero demographics) cannot be
+    # labelled: np.select would route them to the default class and silently
+    # mislabel them. Drop them up front. No-op for mura (all units have
+    # demographics); relevant for aza, where the census join leaves some units
+    # without population counts.
+    invalid = df["elderly_ratio"].isna() | np.isinf(df["elderly_ratio"])
+    n_invalid = int(invalid.sum())
+    if n_invalid:
+        print(f"  Dropping {n_invalid} units with no valid elderly_ratio "
+              f"(missing/zero demographics).")
+        df = df.loc[~invalid].reset_index(drop=True)
+
     conditions = [
         df["elderly_ratio"] < stable_thresh,
         (df["elderly_ratio"] >= stable_thresh) & (df["elderly_ratio"] < shrinking_thresh),

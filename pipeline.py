@@ -49,8 +49,11 @@ def main(config_path: str = "config/config.yaml") -> None:
     }
 
     # 1) Data acquisition hooks (validate required local inputs exist)
-    boundaries_path = cfg["data"]["boundaries_path"]
-    demographics_path = cfg["data"]["demographics_path"]
+    # Select unit-level-specific inputs, falling back to the flat (mura) keys.
+    unit_level = cfg.get("run_mode", {}).get("unit_level", "mura")
+    data_cfg = cfg["data"]
+    boundaries_path = data_cfg.get(f"boundaries_path_{unit_level}", data_cfg["boundaries_path"])
+    demographics_path = data_cfg.get(f"demographics_path_{unit_level}", data_cfg["demographics_path"])
 
     if not Path(boundaries_path).exists():
         raise FileNotFoundError(f"Missing boundaries file: {boundaries_path}")
@@ -239,22 +242,17 @@ def main(config_path: str = "config/config.yaml") -> None:
         )
 
     elif unit_level == "aza":
-        # demographics are municipality-level -> map aza -> municipality using first 5 digits of its code
-        # aza unit_id example: aza:Aomori:022010010  -> muni_code = 02201 -> mura_unit_id = mura:Aomori:02201
-        parts = features_df["unit_id"].str.split(":", n=2, expand=True)
-        pref = parts[1].astype(str).str.strip()
-        code = parts[2].astype(str).str.replace(r"\D", "", regex=True)
-        muni_code = code.str[:5].str.zfill(5)
-
-        features_df["_demo_join_id"] = "mura:" + pref + ":" + muni_code
-
+        # aza demographics are keyed on the same aza unit_id -> direct join.
+        # Drop demo columns that already exist on the features table (e.g. unit_code,
+        # pref_name) so the features-side values stay authoritative and no _x/_y suffixes appear.
+        overlap = [c for c in demo.columns if c in features_df.columns and c != unit_id_right]
+        demo_aza = demo.drop(columns=overlap)
         merged = features_df.merge(
-            demo,
-            left_on="_demo_join_id",
+            demo_aza,
+            left_on=unit_id_left,
             right_on=unit_id_right,
             how="left",
             validate="m:1",
-            suffixes=("", "_demo"),
         )
 
     else:
@@ -291,10 +289,10 @@ def main(config_path: str = "config/config.yaml") -> None:
         features_df = features_df.drop_duplicates(subset=["unit_id", "month"], keep="first")
 
 
-    # 7) Export final features table
-    out_csv = cfg["outputs"]["features_table_csv"]
-    out_parquet = cfg["outputs"]["features_table_parquet"]
-    out_manifest = cfg["outputs"]["run_manifest_json"]
+    # 7) Export final features table ({unit_level} keeps mura/aza outputs separate)
+    out_csv = cfg["outputs"]["features_table_csv"].format(unit_level=unit_level)
+    out_parquet = cfg["outputs"]["features_table_parquet"].format(unit_level=unit_level)
+    out_manifest = cfg["outputs"]["run_manifest_json"].format(unit_level=unit_level)
 
     Path(out_csv).parent.mkdir(parents=True, exist_ok=True)
 

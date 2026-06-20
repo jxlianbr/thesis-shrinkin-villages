@@ -1,0 +1,354 @@
+{
+  "n_units": 7448,
+  "indicators": {
+    "n_indicators": 12,
+    "n_physical": 8,
+    "n_demographic": 4,
+    "quality": {
+      "n_missing_total": 486,
+      "missing_per_column": {
+        "viirs_mean_slope": 6,
+        "S2_NDBI_contrast_slope": 166,
+        "S2_NDBI_contrast_mean": 157,
+        "S2_NDBI_entropy_mean": 157
+      },
+      "near_constant_features": [
+        "NDVI_slope",
+        "youth_ratio"
+      ],
+      "n_outlier_flags": 714,
+      "outlier_flags": {
+        "NDVI_slope": 2,
+        "viirs_mean_slope": 127,
+        "S2_NDBI_contrast_slope": 74,
+        "NDVI_cv": 5,
+        "S2_NDBI_contrast_mean": 24,
+        "S2_NDBI_entropy_mean": 16,
+        "elderly_ratio": 93,
+        "aging_index": 142,
+        "youth_ratio": 86,
+        "household_size": 56,
+        "pop_total": 89
+      },
+      "high_correlation_pairs": [],
+      "summary_stats": {
+        "NDVI_slope": {
+          "mean": 0.2201,
+          "std": 0.0982,
+          "min": -0.0794,
+          "max": 0.4859,
+          "median": 0.2341
+        },
+        "NDBI_slope": {
+          "mean": 0.0045,
+          "std": 0.1108,
+          "min": -0.2418,
+          "max": 0.1918,
+          "median": 0.0194
+        },
+        "viirs_mean_slope": {
+          "mean": -0.9839,
+          "std": 3.3439,
+          "min": -126.4917,
+          "max": 14.9214,
+          "median": -0.2116
+        },
+        "S2_NDBI_contrast_slope": {
+          "mean": -1295.0158,
+          "std": 793.01,
+          "min": -6564.7433,
+          "max": 1900.8809,
+          "median": -1181.6761
+        },
+        "NDVI_cv": {
+          "mean": 1.266,
+          "std": 11.4724,
+          "min": 0.5316,
+          "max": 912.7302,
+          "median": 0.956
+        },
+        "NDVI_seasonal_amp": {
+          "mean": 0.3963,
+          "std": 0.1653,
+          "min": 0.0983,
+          "max": 0.7589,
+          "median": 0.3631
+        },
+        "NDBI_seasonal_amp": {
+          "mean": 0.4587,
+          "std": 0.1413,
+          "min": 0.1863,
+          "max": 0.7769,
+          "median": 0.4175
+        },
+        "S2_NDBI_contrast_mean": {
+          "mean": 3353.186,
+          "std": 1974.4277,
+          "min": 137.0765,
+          "max": 11997.8854,
+          "median": 3095.7122
+        },
+        "S2_NDBI_entropy_mean": {
+          "mean": 3.7595,
+          "std": 0.909,
+          "min": 0.8221,
+          "max": 7.0581,
+          "median": 3.7453
+        },
+        "elderly_ratio": {
+          "mean": 0.4036,
+          "std": 0.1426,
+          "min": 0.0091,
+          "max": 1.8889,
+          "median": 0.3969
+        },
+        "aging_index": {
+          "mean": 6.32,
+          "std": 7.6602,
+          "min": 0.0625,
+          "max": 175.0,
+          "median": 4.3333
+        },
+        "youth_ratio": {
+          "mean": 0.0926,
+          "std": 0.0442,
+          "min": 0.0048,
+          "max": 0.44,
+          "median": 0.0887
+        },
+        "household_size": {
+          "mean": 2.6401,
+          "std": 1.0924,
+          "min": 0.5625,
+          "max": 48.6,
+          "median": 2.5227
+        },
+        "pop_total": {
+          "mean": 293.5529,
+          "std": 510.7242,
+          "min": 6.0,
+          "max": 15724.9975,
+          "median": 138.9999
+        }
+      }
+    }
+  },
+  "clustering": {
+    "primary_k": 3,
+    "optimal_k": 3,
+    "data_driven_k": 5,
+    "report_k_values": [
+      3,
+      4,
+      5
+    ],
+    "pca_thresholds": {
+      "80%": 8,
+      "90%": 10,
+      "95%": 11
+    },
+    "silhouette_mean": 0.1774,
+    "kmeans_hier_ari": 0.5938,
+    "kmeans_hier_nmi": 0.5875,
+    "bootstrap": {
+      "mean_ari": 0.9601,
+      "std_ari": 0.0842,
+      "ci_95": [
+        0.6199,
+        0.9924
+      ],
+      "n_resamples": 1000,
+      "sample_fraction": 0.8
+    },
+    "multi_k": {
+      "3": {
+        "silhouette": 0.1774,
+        "bootstrap_ari": 0.9601,
+        "bootstrap_ci": [
+          0.6199,
+          0.9924
+        ],
+        "supervised_ari": 0.1354,
+        "cluster_sizes": {
+          "0": 3470,
+          "1": 1295,
+          "2": 2683
+        },
+        "hier_ari": 0.5938,
+        "pca_silhouette": 0.2162,
+        "pca_ari_vs_raw": 0.9759
+      },
+      "4": {
+        "silhouette": 0.1778,
+        "bootstrap_ari": 0.8153,
+        "bootstrap_ci": [
+          0.294,
+          0.9928
+        ],
+        "supervised_ari": 0.1343,
+        "cluster_sizes": {
+          "0": 3467,
+          "1": 2684,
+          "2": 1296,
+          "3": 1
+        },
+        "hier_ari": 0.5933,
+        "pca_silhouette": 0.2165,
+        "pca_ari_vs_raw": 0.9779
+      },
+      "5": {
+        "silhouette": 0.1809,
+        "bootstrap_ari": 0.7789,
+        "bootstrap_ci": [
+          0.5485,
+          0.9859
+        ],
+        "supervised_ari": 0.1149,
+        "cluster_sizes": {
+          "0": 2418,
+          "1": 1523,
+          "2": 1285,
+          "3": 1,
+          "4": 2221
+        },
+        "hier_ari": 0.4034,
+        "pca_silhouette": 0.2194,
+        "pca_ari_vs_raw": 0.9474
+      }
+    },
+    "specification_robustness": [
+      {
+        "specification": "physical_only",
+        "n_features": 7,
+        "features_used": "viirs_mean_slope, S2_NDBI_contrast_slope, NDVI_cv, NDVI_seasonal_amp, NDBI_seasonal_amp, S2_NDBI_contrast_mean, S2_NDBI_entropy_mean",
+        "ari_vs_primary": 0.442,
+        "nmi_vs_primary": 0.3567,
+        "silhouette": 0.197
+      },
+      {
+        "specification": "demographic_only",
+        "n_features": 3,
+        "features_used": "elderly_ratio, household_size, pop_total",
+        "ari_vs_primary": 0.1174,
+        "nmi_vs_primary": 0.1175,
+        "silhouette": 0.3322
+      },
+      {
+        "specification": "trend_only",
+        "n_features": 3,
+        "features_used": "viirs_mean_slope, S2_NDBI_contrast_slope, NDVI_cv",
+        "ari_vs_primary": 0.0141,
+        "nmi_vs_primary": 0.0264,
+        "silhouette": 0.3961
+      },
+      {
+        "specification": "level_only",
+        "n_features": 7,
+        "features_used": "S2_NDBI_contrast_mean, S2_NDBI_entropy_mean, NDVI_seasonal_amp, NDBI_seasonal_amp, elderly_ratio, household_size, pop_total",
+        "ari_vs_primary": 0.837,
+        "nmi_vs_primary": 0.792,
+        "silhouette": 0.2247
+      }
+    ]
+  },
+  "relationships": {
+    "n_significant_correlations": 49,
+    "top_correlations": [
+      {
+        "method": "spearman",
+        "physical": "S2_NDBI_contrast_slope",
+        "demographic": "pop_total",
+        "correlation": 0.4965,
+        "p_value": 0.0,
+        "significant_bonferroni": true
+      },
+      {
+        "method": "spearman",
+        "physical": "S2_NDBI_contrast_mean",
+        "demographic": "household_size",
+        "correlation": -0.3732,
+        "p_value": 9.962817572429432e-240,
+        "significant_bonferroni": true
+      },
+      {
+        "method": "spearman",
+        "physical": "S2_NDBI_contrast_mean",
+        "demographic": "elderly_ratio",
+        "correlation": -0.3399,
+        "p_value": 1.3376054279004602e-196,
+        "significant_bonferroni": true
+      },
+      {
+        "method": "pearson",
+        "physical": "S2_NDBI_contrast_slope",
+        "demographic": "pop_total",
+        "correlation": 0.3125,
+        "p_value": 1.0902140437346565e-164,
+        "significant_bonferroni": true
+      },
+      {
+        "method": "spearman",
+        "physical": "S2_NDBI_contrast_mean",
+        "demographic": "aging_index",
+        "correlation": -0.2971,
+        "p_value": 1.6753584082695893e-148,
+        "significant_bonferroni": true
+      }
+    ],
+    "regression": {
+      "r_squared": 0.154,
+      "adj_r_squared": 0.1531,
+      "f_stat": 165.5073,
+      "f_pvalue": 0.0,
+      "dependent_var": "elderly_ratio"
+    },
+    "spatial": {
+      "morans_i": 0.2219,
+      "morans_p": 0.001,
+      "significant": true,
+      "spatial_regression": {
+        "skipped": false,
+        "dependent_var": "elderly_ratio",
+        "ols": {
+          "r_squared": 0.154,
+          "adj_r_squared": 0.1531,
+          "aic": -9077.18,
+          "schwarz": -9015.14,
+          "log_likelihood": 4547.5887
+        },
+        "lm_lag": {
+          "statistic": 708.8666,
+          "p_value": 0.0
+        },
+        "lm_error": {
+          "statistic": 787.2981,
+          "p_value": 0.0
+        },
+        "rlm_lag": {
+          "statistic": 0.0276,
+          "p_value": 0.868068
+        },
+        "rlm_error": {
+          "statistic": 78.4591,
+          "p_value": 0.0
+        },
+        "spatial_lag": {
+          "pseudo_r_squared": 0.241,
+          "rho": 0.3382,
+          "aic": -9652.22,
+          "schwarz": -9583.29,
+          "log_likelihood": 4836.1113
+        },
+        "spatial_error": {
+          "pseudo_r_squared": 0.152,
+          "lambda": 0.3799,
+          "aic": -9728.4,
+          "schwarz": -9666.37,
+          "log_likelihood": 4873.2018
+        },
+        "best_model": "Spatial Error",
+        "best_aic": -9728.4
+      }
+    }
+  }
+}

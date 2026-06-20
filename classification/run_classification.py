@@ -25,6 +25,13 @@ _project_root = str(Path(__file__).resolve().parent.parent)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
+# Force a non-interactive backend before pyplot is imported by the src modules.
+# This pipeline only writes figures to disk; the default Tk backend can crash on
+# interpreter teardown ("Tcl_AsyncDelete: async handler deleted by the wrong
+# thread") in headless/batch runs.
+import matplotlib
+matplotlib.use("Agg")
+
 from classification.src.utils import (
     load_config,
     ensure_output_dirs,
@@ -128,7 +135,9 @@ def main(config_path: str = "classification/config/classification_config.yaml") 
     for exp_name, X_exp in leakage["feature_sets"].items():
         marker = " <- PRIMARY" if exp_name == primary_exp else ""
         print(f"\n  Experiment: {exp_name} ({X_exp.shape[1]} features){marker}")
-        cv_res = run_cross_validation(X_exp, data["y"], models, cfg)
+        cv_res = run_cross_validation(
+            X_exp, data["y"], models, cfg, groups=data.get("groups"),
+        )
         all_experiment_cv[exp_name] = cv_res
 
         # Quick evaluation for comparison table

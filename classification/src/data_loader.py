@@ -48,6 +48,19 @@ def load_classification_data(cfg: Dict[str, Any]) -> Dict[str, Any]:
     feature_cols = [c for c in df.columns if c not in exclude]
     X = df[feature_cols].copy()
 
+    # Optional spatial grouping for grouped cross-validation.
+    # unit_id has the form '<level>:<pref>:<code>'; the parent municipality
+    # (mura) is the first 5 digits of <code>. All aza in a municipality share
+    # this key, providing a spatial block so adjacent/autocorrelated units do
+    # not straddle the train/test boundary. Computed only when enabled in cfg.
+    groups = None
+    group_cfg = (cfg.get("cross_validation", {}).get("grouping") or {})
+    if group_cfg.get("enabled") and "unit_id" in identifiers.columns:
+        uid = identifiers["unit_id"].astype(str)
+        groups = uid.str.split(":").str[-1].str.slice(0, 5).to_numpy()
+        print(f"  Spatial grouping: {len(set(groups.tolist()))} municipality "
+              f"groups for grouped CV")
+
     # Class distribution
     class_dist = y_labels.value_counts().to_dict()
     print(f"  Features: {len(feature_cols)}")
@@ -67,4 +80,5 @@ def load_classification_data(cfg: Dict[str, Any]) -> Dict[str, Any]:
         "n_samples": len(df),
         "n_features": len(feature_cols),
         "class_distribution": class_dist,
+        "groups": groups,
     }

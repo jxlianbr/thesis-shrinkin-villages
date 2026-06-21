@@ -1,0 +1,197 @@
+# =============================================================================
+# Phase B Configuration — Structural-Trajectory Analysis
+# =============================================================================
+
+# Root directories (absolute; use forward slashes or raw backslashes)
+data_root: "D:/data_code_masterthesis/data"
+phase_a_root: "D:/data_code_masterthesis/code/phase_a"
+phase_b_root: "D:/data_code_masterthesis/code/phase_a/phase_b"
+
+# Join key column name (must match across ALL tables before every merge)
+aza_id_col: "unit_id"           # e.g. "aza:Aomori:022010010"
+unit_code_col: "unit_code"      # numeric string e.g. "022010010"
+
+# --- Phase A inputs (paths relative to phase_a_root) -----------------------
+phase_a:
+  eo_trajectory:       "outputs/final/features_table_aza.parquet"
+  classification_ready: "preprocessing/outputs/classification_ready_aza.csv"
+  aza_polygons:        "admin_demographics/boundaries/aza.gpkg"
+
+# --- NLNI accessibility layers (paths relative to data_root) ---------------
+nlni:
+  did:
+    aomori: "nlni_data_japan/DID/A16-15_02_GML/A16-15_02_DID.shp"
+    akita:  "nlni_data_japan/DID/A16-15_05_GML/A16-15_05_DID.shp"
+    assumed_crs: "EPSG:4612"    # no .prj in DID shapefiles; JGD2000 geographic
+    skip_datetime_field: "A16_011"  # year-0 date field that crashes pyogrio
+  medical:
+    aomori: "nlni_data_japan/Hospitals/P04-14_02_GML/P04-14_02_GML/P04-14_02-g_MedicalInstitution.shp"
+    akita:  "nlni_data_japan/Hospitals/P04-14_05_GML/P04-14_05_GML/P04-14_05-g_MedicalInstitution.shp"
+    hospital_type_col: "P04_001"  # 1 = hospital (>=20 beds); 2/3 = clinic
+    hospital_type_code: "1"
+  schools:
+    aomori: "nlni_data_japan/Schools/P29-13_02/P29-13_02/P29-13_02.shp"
+    akita:  "nlni_data_japan/Schools/P29-13_05/P29-13_05/P29-13_05.shp"
+    school_type_col: "P29_003"   # elementary = 16002 in 2013 vintage
+    elementary_type_code: "16002"
+  bus_stops:
+    aomori: "nlni_data_japan/Bus_stops/P11-10_02_GML/P11-10_02_GML/P11-10_02-jgd-g_BusStop.shp"
+    akita:  "nlni_data_japan/Bus_stops/P11-10_05_GML/P11-10_05_GML/P11-10_05-jgd-g_BusStop.shp"
+    assumed_crs: "EPSG:4612"
+  bus_routes:
+    aomori: "nlni_data_japan/Bus_routes/N07-11_02_GML/N07-11_02_GML/N07-11_02.shp"
+    akita:  "nlni_data_japan/Bus_routes/N07-11_05_GML/N07-11_05_GML/N07-11_05.shp"
+    assumed_crs: "EPSG:4612"
+  community_facilities:  # P05 — STUB; add paths when files are available
+    aomori: null
+    akita:  null
+  buffer_radii_m: [1000, 3000, 5000]  # meters for count-within-buffer features
+
+# --- Census small-area age 2015 (relative to data_root) -------------------
+census:
+  # tblT000848 = population by sex and households; tblT000849 = age breakdown
+  pop_sex_households:
+    aomori: "census_data_japan_aza/2015/tblT000848C02/tblT000848C02.txt"
+    akita:  "census_data_japan_aza/2015/tblT000848C05/tblT000848C05.txt"
+  age_5yr:
+    aomori: "census_data_japan_aza/2015/tblT000849C02/tblT000849C02.txt"
+    akita:  "census_data_japan_aza/2015/tblT000849C05/tblT000849C05.txt"
+  key_code_col: "KEY_CODE"
+  aza_hyosyo_code: 2            # HYOSYO=2 means aza-level row
+
+# --- Housing and Land Survey 2013 (relative to data_root) -----------------
+# a047 = cities (市), a048 = towns & villages (町村)
+housing:
+  tenure_age_dilapidation_2013:
+    aomori_city:   "housing_data_japan/2013/Aomori-ken/a047.xls"
+    aomori_town:   "housing_data_japan/2013/Aomori-ken/a048.xls"
+    akita_city:    "housing_data_japan/2013/Akita-ken/a047.xls"
+    akita_town:    "housing_data_japan/2013/Akita-ken/a048.xls"
+  # Column positions in the XLS (0-indexed, after header rows)
+  muni_code_col: 1    # e.g. 220146
+  row_type_col: 2     # 1 = total, 2 = owner-occupied, etc.
+  total_col: 5        # 住宅総数
+  pre1981_cols: [6, 7, 8]  # 昭和35以前, 36-45, 46-55 (built before 1981 = old earthquake code)
+
+# --- Municipal finance — 決算カード PDFs (relative to data_root) -----------
+# LEAKAGE RULE: only fiscal years <= 2014 may be loaded.
+finance:
+  pdf_dir: "finance_data_japan"
+  max_fiscal_year: 2014   # assert FY <= this; raise if violated
+  # Regex patterns to extract values from PDF text (label → output column name)
+  # Spaces between kanji characters are normalised away before matching.
+  metrics:
+    local_tax:          "地方税"
+    local_alloc_tax:    "地方交付税"
+    total_revenue:      "歳入総額"
+    total_expenditure:  "歳出総額"
+    std_fiscal_revenue: "基準財政収入額"
+    std_fiscal_need:    "基準財政需要額"
+    real_balance:       "実質収支"
+
+# --- Heisei merger records (relative to data_root) ------------------------
+merger:
+  file_1: "merger_data_japan/000283317.xls"
+  file_2: "merger_data_japan/000283318.xls"
+  date_col: 2          # 合併期日 (merger date)
+  pref_col: 1          # 都道府県
+  new_name_col: 3      # 名称 (new municipality name)
+  type_col: 4          # 合併の方式 (編入/新設)
+  members_col: 5       # 関係市町村
+  reference_date: "2015-01-01"   # years-since-merger computed relative to here
+
+# --- Target building -------------------------------------------------------
+target:
+  physical_indicator: "S2_NDBI_contrast_mean"  # configurable; must exist in classification_ready
+  demographic_regressors:
+    - "elderly_ratio"    # ratio of 65+ to total pop
+    - "pop_total"        # scale control
+  vif_threshold: 10.0    # drop regressors with VIF > this (reuses Phase A logic)
+  output_col: "physical_residual"
+
+# --- Feature matrix guards -------------------------------------------------
+feature_matrix:
+  # These columns must NEVER appear in the final feature matrix (leakage / target)
+  banned_columns:
+    - "elderly_ratio"
+    - "aging_index"
+    - "youth_ratio"
+    - "shrinkage_class"
+    - "shrinkage_code"
+    - "age_65_plus"
+    - "age_u15"
+    - "pop_total"
+
+# --- Cross-validation -------------------------------------------------------
+cross_validation:
+  strategy: "grouped_stratified_kfold"   # municipality-blocked spatial CV
+  n_splits: 5
+  n_repeats: 5
+  random_state: 42
+  grouping:
+    enabled: true
+    field: "muni_code"    # derived from unit_id[:5] of unit_code
+  loo_check:
+    enabled: true
+    models: [xgboost]
+
+# --- XGBoost model ---------------------------------------------------------
+model:
+  xgboost:
+    n_estimators: 200
+    max_depth: 4
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+    reg_alpha: 0.1
+    reg_lambda: 1.0
+    eval_metric: "rmse"
+    random_state: 42
+    n_jobs: -1
+
+# --- SHAP / explain --------------------------------------------------------
+explain:
+  n_background: 50          # kmeans background sample for TreeExplainer
+  case_shortlist_n: 10      # top-N positive residuals for case table
+  mechanism_taxonomy:       # feature prefix → mechanism cluster label
+    NDBI:        "built_environment_trajectory"
+    NDVI:        "vegetation_trajectory"
+    MNDWI:       "water_trajectory"
+    viirs:       "nightlight_activity"
+    S2_NDBI:     "texture_built_condition"
+    dw_built:    "built_fraction_lulc"
+    dw_trees:    "vegetation_fraction_lulc"
+    dw_bare:     "bare_land_lulc"
+    elevation:   "terrain"
+    slope:       "terrain"
+    osm_built:   "osm_built_stock"
+    dist_did:    "accessibility_did"
+    dist_med:    "accessibility_medical"
+    dist_hosp:   "accessibility_hospital"
+    dist_school: "accessibility_education"
+    dist_elem:   "accessibility_education"
+    dist_bus:    "accessibility_transit"
+    n_med:       "accessibility_medical"
+    n_school:    "accessibility_education"
+    n_bus:       "accessibility_transit"
+    fiscal:      "municipal_fiscal"
+    hls_pre1981: "housing_durability"
+    kaso:        "policy_depopulation"
+    merged:      "administrative_merger"
+    elderly_flag: "demographic_threshold"
+    household:   "demographic_threshold"
+
+# --- Spatial projection for distance computation --------------------------
+crs_project: "EPSG:6680"    # JGD2011 Japan Zone 10 (meters)
+
+# --- Output paths (relative to phase_b_root) ------------------------------
+output:
+  residuals:       "outputs/target_residuals.parquet"
+  accessibility:   "outputs/accessibility_features.parquet"
+  feature_matrix:  "outputs/feature_matrix.parquet"
+  cv_results:      "outputs/cv_results.json"
+  shap_values:     "outputs/shap_values.parquet"
+  case_shortlist:  "outputs/case_shortlist.csv"
+  manifest:        "manifest.md"
+
+random_state: 42

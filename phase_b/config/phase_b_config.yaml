@@ -78,6 +78,7 @@ housing:
 # LEAKAGE RULE: only fiscal years <= 2014 may be loaded.
 finance:
   pdf_dir: "finance_data_japan"
+  min_fiscal_year: 1998   # skip FY < this (FY1997 incomplete/excluded)
   max_fiscal_year: 2014   # assert FY <= this; raise if violated
   # Regex patterns to extract values from PDF text (label → output column name)
   # Spaces between kanji characters are normalised away before matching.

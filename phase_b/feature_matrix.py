@@ -176,6 +176,7 @@ def _load_finance_features(cfg: Dict[str, Any]) -> pd.DataFrame:
     fin_cfg = cfg["finance"]
     data_root = Path(cfg["data_root"])
     pdf_dir = data_root / fin_cfg["pdf_dir"]
+    min_fy = int(fin_cfg.get("min_fiscal_year", 0))
     max_fy = int(fin_cfg["max_fiscal_year"])
     metrics_map: dict[str, str] = fin_cfg["metrics"]
 
@@ -188,7 +189,7 @@ def _load_finance_features(cfg: Dict[str, Any]) -> pd.DataFrame:
     for pdf_path in pdf_files:
         pref = "Aomori" if pdf_path.name.endswith("_02.pdf") else "Akita"
         try:
-            rows = _parse_kessancard_pdf(pdf_path, pref, metrics_map, max_fy)
+            rows = _parse_kessancard_pdf(pdf_path, pref, metrics_map, min_fy, max_fy)
             records.extend(rows)
         except Exception as exc:
             print(f"  WARNING: failed to parse {pdf_path.name}: {exc}")
@@ -236,6 +237,7 @@ def _parse_kessancard_pdf(
     pdf_path: Path,
     pref: str,
     metrics_map: dict[str, str],
+    min_fy: int,
     max_fy: int,
 ) -> list[dict]:
     """Parse one 決算カード PDF, returning list of per-municipality dicts."""
@@ -258,7 +260,10 @@ def _parse_kessancard_pdf(
             print(f"  WARNING: Could not determine FY from {pdf_path.name}; skipping.")
             return []
 
-        # Leakage guard
+        # Year range guards
+        if fy < min_fy:
+            print(f"  Skipping {pdf_path.name}: FY{fy} < min_fiscal_year={min_fy}.")
+            return []
         if fy > max_fy:
             raise ValueError(
                 f"Finance PDF {pdf_path.name} is FY{fy} which exceeds "

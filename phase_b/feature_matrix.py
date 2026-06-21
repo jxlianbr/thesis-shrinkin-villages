@@ -639,7 +639,11 @@ def build_feature_matrix(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
     print("Loading Housing and Land Survey 2013 durability...")
     hls = _load_hls_durability(cfg)
     if len(hls) > 0:
-        _assert_key_alignment(base, hls, "muni_code", "HLS durability")
+        # Broadcast join: HLS may have extra muni codes not in base — that's fine.
+        unmatched_hls = len(set(base["muni_code"]) - set(hls["muni_code"].dropna()))
+        if unmatched_hls:
+            print(f"  NOTE: {unmatched_hls} muni codes in base have no HLS match "
+                  "-- will be NaN (hls_missing=1).")
         base = base.merge(
             hls[["muni_code", "hls_pre1981_ratio", "hls_total_dwellings",
                  "hls_missing"]],

@@ -130,10 +130,12 @@ def _buffer_count(
         predicate="intersects",
     )
     counts = joined.groupby(aza_id_col)["index_right"].count()
-    # Fill aza units with no nearby facilities.
-    counts = counts.reindex(aza_pts[aza_id_col], fill_value=0)
-    counts.index = aza_pts[aza_id_col].values
-    return counts
+    # Return a clean DataFrame so callers can merge on aza_id_col by column,
+    # avoiding any index-dtype ambiguity that breaks right_index=True merges.
+    ref = pd.DataFrame({aza_id_col: aza_pts[aza_id_col].unique()})
+    result = ref.merge(counts.reset_index(name="_cnt"), on=aza_id_col, how="left")
+    result["_cnt"] = result["_cnt"].fillna(0).astype(int)
+    return result.set_index(aza_id_col)["_cnt"]
 
 
 # ---------------------------------------------------------------------------
@@ -242,7 +244,7 @@ def compute_accessibility(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
         cnt = _buffer_count(aza_pts, med_all, r, aza_id_col)
         out = out.merge(
             cnt.rename(f"n_medical_{r}m"),
-            left_on=aza_id_col, right_index=True, how="left",
+            on=aza_id_col, how="left",
         )
 
     # --- Schools (P29) ---
@@ -280,7 +282,7 @@ def compute_accessibility(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
         cnt = _buffer_count(aza_pts, sch_all, r, aza_id_col)
         out = out.merge(
             cnt.rename(f"n_school_{r}m"),
-            left_on=aza_id_col, right_index=True, how="left",
+            on=aza_id_col, how="left",
         )
 
     # --- Bus stops (P11) ---
@@ -303,7 +305,7 @@ def compute_accessibility(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
         cnt = _buffer_count(aza_pts, bs_all, r, aza_id_col)
         out = out.merge(
             cnt.rename(f"n_bus_stop_{r}m"),
-            left_on=aza_id_col, right_index=True, how="left",
+            on=aza_id_col, how="left",
         )
 
     # --- Bus routes (N07) ---
@@ -350,7 +352,7 @@ def compute_accessibility(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
             cnt = _buffer_count(aza_pts, p05_all, r, aza_id_col)
             out = out.merge(
                 cnt.rename(f"n_community_facility_{r}m"),
-                left_on=aza_id_col, right_index=True, how="left",
+                on=aza_id_col, how="left",
             )
         print(f"  P05: {len(p05_all)} facilities loaded "
               f"(Aomori {len(p05_ao)} + Akita {len(p05_ak)}).")

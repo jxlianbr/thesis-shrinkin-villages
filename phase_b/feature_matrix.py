@@ -9,7 +9,7 @@ Joins all Phase B predictor families onto AZA_ID:
   5. Kaso old-law designation flag (hard-coded from official list)
   6. Heisei merger flag + years-since-merger
   7. Accessibility features (from accessibility_features.py)
-  8. Community facility presence / distance (P05 — stub until data added)
+  8. Community facility presence / distance (P05)
 
 Guards enforced before every merge:
   - AZA_ID alignment assertion (fail loudly on mismatch)
@@ -540,6 +540,42 @@ def _load_merger_flags(cfg: Dict[str, Any]) -> pd.DataFrame:
 # Main assembly
 # ---------------------------------------------------------------------------
 
+def _build_muni_name_lookup(cfg: Dict[str, Any]) -> dict[str, str]:
+    """
+    Build {muni_code: city_name_ja} from census HYOSYO=1 rows.
+
+    KEY_CODE for municipality-level rows is a 4-5 digit int (e.g. 2201 =
+    Aomori-shi).  Zero-padding to 5 digits gives the JISCD muni code that
+    matches _extract_muni_code() output.
+    """
+    data_root = Path(cfg["data_root"])
+    c_cfg = cfg["census"]
+    lookup: dict[str, str] = {}
+
+    for pref_key in ("aomori", "akita"):
+        path = data_root / c_cfg["pop_sex_households"][pref_key]
+        try:
+            df = pd.read_csv(path, encoding="cp932", dtype=str, low_memory=False)
+        except UnicodeDecodeError:
+            df = pd.read_csv(path, encoding="utf-8", dtype=str, low_memory=False)
+        # Drop header row (all-NaN KEY_CODE) and filter to municipality level
+        df = df[df["KEY_CODE"].notna()].copy()
+        df["_hyosyo"] = pd.to_numeric(df.get("HYOSYO", pd.Series(dtype=float)),
+                                      errors="coerce")
+        muni_rows = df[df["_hyosyo"] == 1][["KEY_CODE", "CITYNAME"]].dropna()
+        for _, row in muni_rows.iterrows():
+            try:
+                code = str(int(float(row["KEY_CODE"]))).zfill(5)
+                name = str(row["CITYNAME"]).strip()
+                if name:
+                    lookup[code] = name
+            except (ValueError, TypeError):
+                pass
+
+    print(f"  Muni name lookup: {len(lookup)} municipalities.")
+    return lookup
+
+
 def build_feature_matrix(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
     """
     Assemble the full Phase B feature matrix.
@@ -561,8 +597,14 @@ def build_feature_matrix(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
     base = pd.read_csv(ready_path, encoding="utf-8")
     print(f"  Base: {len(base)} aza units, {len(base.columns)} cols.")
 
-    # Derive muni_code for broadcasting
+    # Derive muni_code + city_name_ja for broadcasting
     base["muni_code"] = base[aza_id_col].apply(_extract_muni_code)
+    print("Building municipality name lookup from census...")
+    muni_lookup = _build_muni_name_lookup(cfg)
+    base["city_name_ja"] = base["muni_code"].map(muni_lookup)
+    unmatched = base["city_name_ja"].isna().sum()
+    if unmatched:
+        print(f"  WARNING: {unmatched} aza units have no city_name_ja match.")
 
     # ---- 1. Demographic threshold flags --------------------------------
     print("Building demographic threshold flags...")

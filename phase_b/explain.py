@@ -49,7 +49,7 @@ def compute_shap(
     cfg: Dict[str, Any],
 ) -> pd.DataFrame:
     """
-    Compute SHAP values using TreeExplainer with a k-means background sample.
+    Compute SHAP values using TreeExplainer (path-dependent method for trees).
 
     Returns DataFrame (n_samples x n_features) of SHAP values.
     """
@@ -60,11 +60,10 @@ def compute_shap(
             "shap is required for explain.py. Install with: pip install shap"
         ) from exc
 
-    n_background = int(cfg["explain"]["n_background"])
-    n_background = min(n_background, len(X))
-
-    background = shap.kmeans(X.values, min(n_background, len(X)))
-    explainer = shap.TreeExplainer(model, background)
+    # TreeExplainer uses XGBoost's built-in path-dependent SHAP method;
+    # no background dataset required (shap.kmeans returns legacy DenseData
+    # that newer SHAP rejects as a masker).
+    explainer = shap.TreeExplainer(model)
 
     print(f"Computing SHAP values for {len(X)} samples ...")
     shap_values = explainer.shap_values(X.values)

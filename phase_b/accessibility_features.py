@@ -175,9 +175,14 @@ def compute_accessibility(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
     aza_proj = aza.to_crs(crs_proj)
     aza_pts = aza_proj.copy()
     aza_pts["geometry"] = aza_proj.geometry.representative_point()
-    print(f"  {len(aza_pts)} aza units loaded.")
+    # aza.gpkg may contain duplicate unit_ids (multi-part geometries); keep first.
+    before = len(aza_pts)
+    aza_pts = aza_pts.drop_duplicates(subset=aza_id_col, keep="first")
+    if len(aza_pts) < before:
+        print(f"  Dropped {before - len(aza_pts)} duplicate unit_ids from aza.gpkg.")
+    print(f"  {len(aza_pts)} unique aza units.")
 
-    out = aza[[aza_id_col]].copy()
+    out = aza_pts[[aza_id_col]].copy().reset_index(drop=True)
 
     # --- DID (Densely Inhabited District) ---
     print("Computing DID accessibility...")
@@ -358,7 +363,7 @@ def compute_accessibility(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
               f"(Aomori {len(p05_ao)} + Akita {len(p05_ak)}).")
 
     # --- Final key alignment assertion ---
-    _assert_key_alignment(out, aza, aza_id_col)
+    _assert_key_alignment(out, aza_pts, aza_id_col)
 
     # Persist
     out_path = Path(cfg["phase_b_root"]) / cfg["output"]["accessibility"]

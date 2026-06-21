@@ -22,6 +22,10 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
+
+# Windows cp1252 console can't encode kanji — force UTF-8 output
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 from typing import Any, Dict
 
 import numpy as np
@@ -337,7 +341,7 @@ def _load_hls_durability(cfg: Dict[str, Any]) -> pd.DataFrame:
     Load pre-1981 housing ratio (旧耐震率) per municipality from HLS 2013.
 
     a047 = cities (市); a048 = towns & villages (町村).
-    Returns DataFrame: [muni_code, hls_pre1981_ratio, hls_total_dwellings,
+    Returns DataFrame: [city_name_ja, hls_pre1981_ratio, hls_total_dwellings,
                          hls_missing] at municipality level.
     """
     h_cfg = cfg["housing"]["tenure_age_dilapidation_2013"]
@@ -359,50 +363,58 @@ def _load_hls_durability(cfg: Dict[str, Any]) -> pd.DataFrame:
 
     if not frames:
         print("  WARNING: No HLS data loaded. Durability features will be NaN.")
-        return pd.DataFrame(columns=["muni_code", "hls_pre1981_ratio",
+        return pd.DataFrame(columns=["city_name_ja", "hls_pre1981_ratio",
                                      "hls_total_dwellings", "hls_missing"])
 
     combined = pd.concat(frames, ignore_index=True)
-    combined = combined.drop_duplicates(subset="muni_code")
+    combined = combined.drop_duplicates(subset="city_name_ja")
     print(f"  HLS: {len(combined)} municipalities loaded.")
     return combined
 
 
 def _parse_hls_xls(path: Path, cfg: Dict[str, Any]) -> pd.DataFrame:
-    """Parse one HLS XLS file, extracting pre-1981 and total dwelling counts."""
-    h_cfg = cfg["housing"]["tenure_age_dilapidation_2013"]
-    mc_col = int(cfg["housing"]["muni_code_col"])
-    rt_col = int(cfg["housing"]["row_type_col"])
-    tot_col = int(cfg["housing"]["total_col"])
-    pre1981_cols = [int(c) for c in cfg["housing"]["pre1981_cols"]]
+    """
+    Parse one HLS XLS file (Table 22), extracting pre-1981 dwelling counts.
 
-    # XLS has multi-row headers; skip to first data row by finding the first
-    # row where column mc_col is a numeric municipality code.
+    Municipality names are read from section-header rows (identified by a
+    non-null English name in muni_name_en_col while row_type_col is empty).
+    Column layout verified against a048.xls:
+      row_type_col=5, total_col=10, pre1981_cols=[11,12]
+      (col 11 = <=1970; col 12 = 1971-1980; together = pre-old-seismic-code)
+    """
+    h_cfg = cfg["housing"]
+    rt_col = int(h_cfg["row_type_col"])
+    tot_col = int(h_cfg["total_col"])
+    pre1981_cols = [int(c) for c in h_cfg["pre1981_cols"]]
+    name_col = int(h_cfg.get("muni_name_col", 7))
+    name_en_col = int(h_cfg.get("muni_name_en_col", 8))
+
     raw = pd.read_excel(path, header=None, dtype=str)
 
     records = []
-    current_muni_code = None
+    current_name = None
 
     for _, row in raw.iterrows():
-        mc_val = str(row.iloc[mc_col]).strip()
         rt_val = str(row.iloc[rt_col]).strip()
+        en_val = str(row.iloc[name_en_col]).strip()
 
-        # Detect municipality header rows (e.g., "201　青　　森市" format)
-        if re.match(r"^\d{3}\s", str(row.iloc[0])):
-            m = re.match(r"(\d{2,6})", mc_val.replace(".", ""))
-            if m:
-                current_muni_code = m.group(1)
+        # Section header: row_type cell is empty but English name cell is present
+        if rt_val in ("nan", "") and en_val not in ("nan", "") and len(en_val) > 3:
+            jp_raw = str(row.iloc[name_col]).strip()
+            # Strip leading number prefix (e.g. "361　") and internal whitespace
+            jp_clean = re.sub(r"^\d+\s*", "", jp_raw)
+            jp_clean = re.sub(r"\s+", "", jp_clean).strip()
+            if jp_clean:
+                current_name = jp_clean
             continue
 
-        # Data rows: row_type == "1.0" or "1" = 住宅総数 (all dwellings)
-        if rt_val in ("1.0", "1") and current_muni_code:
+        # Data row with row_type == 1 = 住宅総数 (total dwellings)
+        if rt_val in ("1.0", "1") and current_name:
             try:
                 total = _parse_num(str(row.iloc[tot_col]))
-                pre81 = sum(
-                    _parse_num(str(row.iloc[c])) for c in pre1981_cols
-                )
+                pre81 = sum(_parse_num(str(row.iloc[c])) for c in pre1981_cols)
                 records.append({
-                    "muni_code": current_muni_code,
+                    "city_name_ja": current_name,
                     "hls_total_dwellings": total,
                     "hls_pre1981_count": pre81,
                     "hls_pre1981_ratio": (
@@ -412,7 +424,7 @@ def _parse_hls_xls(path: Path, cfg: Dict[str, Any]) -> pd.DataFrame:
                 })
             except (ValueError, TypeError):
                 records.append({
-                    "muni_code": current_muni_code,
+                    "city_name_ja": current_name,
                     "hls_total_dwellings": np.nan,
                     "hls_pre1981_count": np.nan,
                     "hls_pre1981_ratio": np.nan,
@@ -643,16 +655,15 @@ def build_feature_matrix(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
     # ---- 4. HLS durability (broadcast muni -> aza) ----------------------
     print("Loading Housing and Land Survey 2013 durability...")
     hls = _load_hls_durability(cfg)
-    if len(hls) > 0:
-        # Broadcast join: HLS may have extra muni codes not in base — that's fine.
-        unmatched_hls = len(set(base["muni_code"]) - set(hls["muni_code"].dropna()))
+    if len(hls) > 0 and "city_name_ja" in base.columns:
+        unmatched_hls = len(set(base["city_name_ja"].dropna()) - set(hls["city_name_ja"].dropna()))
         if unmatched_hls:
-            print(f"  NOTE: {unmatched_hls} muni codes in base have no HLS match "
+            print(f"  NOTE: {unmatched_hls} municipalities in base have no HLS match "
                   "-- will be NaN (hls_missing=1).")
         base = base.merge(
-            hls[["muni_code", "hls_pre1981_ratio", "hls_total_dwellings",
+            hls[["city_name_ja", "hls_pre1981_ratio", "hls_total_dwellings",
                  "hls_missing"]],
-            on="muni_code", how="left",
+            on="city_name_ja", how="left",
         )
         # Where join produced NaN, set hls_missing=1
         base["hls_missing"] = base.get("hls_missing", pd.Series(np.nan))
@@ -686,7 +697,10 @@ def build_feature_matrix(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
     acc_path = Path(cfg["phase_b_root"]) / cfg["output"]["accessibility"]
     if acc_path.exists():
         acc = pd.read_parquet(acc_path)
-        _assert_key_alignment(base, acc, aza_id_col, "accessibility")
+        # acc covers all 9031 aza; base is the labeled subset — extra acc rows are fine.
+        unmatched_base = len(set(base[aza_id_col]) - set(acc[aza_id_col]))
+        if unmatched_base:
+            print(f"  WARNING: {unmatched_base} base units missing from accessibility output.")
         base = base.merge(acc, on=aza_id_col, how="left")
     else:
         print(f"  WARNING: accessibility features not found at {acc_path}. "

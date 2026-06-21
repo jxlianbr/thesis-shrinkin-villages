@@ -68,11 +68,12 @@ housing:
     aomori_town:   "housing_data_japan/2013/Aomori-ken/a048.xls"
     akita_city:    "housing_data_japan/2013/Akita-ken/a047.xls"
     akita_town:    "housing_data_japan/2013/Akita-ken/a048.xls"
-  # Column positions in the XLS (0-indexed, after header rows)
-  muni_code_col: 1    # e.g. 220146
-  row_type_col: 2     # 1 = total, 2 = owner-occupied, etc.
-  total_col: 5        # 住宅総数
-  pre1981_cols: [6, 7, 8]  # 昭和35以前, 36-45, 46-55 (built before 1981 = old earthquake code)
+  # Column positions in the XLS (0-indexed; verified against a048.xls Table 22)
+  row_type_col: 5     # 1=住宅総数-row, 2=持ち家, 3=借家, ...
+  total_col: 10       # 総数 (total dwellings)
+  pre1981_cols: [11, 12]  # 昭和45年以前(≤1970) + 昭和46-55年(1971-1980)
+  muni_name_col: 7    # col containing Japanese municipality name in section headers
+  muni_name_en_col: 8 # col containing English name — marks a header row
 
 # --- Municipal finance — 決算カード PDFs (relative to data_root) -----------
 # LEAKAGE RULE: only fiscal years <= 2014 may be loaded.

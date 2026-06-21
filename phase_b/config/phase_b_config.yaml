@@ -33,7 +33,7 @@ nlni:
     aomori: "nlni_data_japan/Schools/P29-13_02/P29-13_02/P29-13_02.shp"
     akita:  "nlni_data_japan/Schools/P29-13_05/P29-13_05/P29-13_05.shp"
     school_type_col: "P29_003"   # elementary = 16002 in 2013 vintage
-    elementary_type_code: "16002"
+    elementary_type_code: "16001"
   bus_stops:
     aomori: "nlni_data_japan/Bus_stops/P11-10_02_GML/P11-10_02_GML/P11-10_02-jgd-g_BusStop.shp"
     akita:  "nlni_data_japan/Bus_stops/P11-10_05_GML/P11-10_05_GML/P11-10_05-jgd-g_BusStop.shp"
@@ -42,9 +42,10 @@ nlni:
     aomori: "nlni_data_japan/Bus_routes/N07-11_02_GML/N07-11_02_GML/N07-11_02.shp"
     akita:  "nlni_data_japan/Bus_routes/N07-11_05_GML/N07-11_05_GML/N07-11_05.shp"
     assumed_crs: "EPSG:4612"
-  community_facilities:  # P05 — STUB; add paths when files are available
-    aomori: null
-    akita:  null
+  community_facilities:  # P05 — LocalGovernmentOffice & PublicMeetingFacility
+    aomori: "nlni_data_japan/P05/P05-10_02_GML/P05-10_02-g_LocalGovernmentOfficeAndPublicMeetingFacility.shp"
+    akita:  "nlni_data_japan/P05/P05-10_05_GML/P05-10_05-g_LocalGovernmentOfficeAndPublicMeetingFacility.shp"
+    assumed_crs: "EPSG:4612"  # no .prj; JGD2000 geographic
   buffer_radii_m: [1000, 3000, 5000]  # meters for count-within-buffer features
 
 # --- Census small-area age 2015 (relative to data_root) -------------------

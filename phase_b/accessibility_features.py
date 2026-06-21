@@ -3,15 +3,11 @@ Phase B — Per-aza accessibility features from NLNI layers.
 
 Computes Euclidean nearest-distance (m) from each aza representative point
 to: DID polygons, medical facilities, schools, bus stops, bus routes, and
-optional community facilities (P05, stub until data arrives).
+community facilities (P05 LocalGovernmentOffice & PublicMeetingFacility).
 
 All layers are reprojected to EPSG:6680 (JGD2011 Japan Zone 10, metres)
 before distance computation.  Ties in sjoin_nearest are resolved by taking
 the minimum distance per aza.
-
-Leave a hook to swap Euclidean for network travel time: replace
-`_euclidean_dist_point` / `_euclidean_dist_line` with a network-routing
-function that accepts the same (aza_pts, facility_gdf) signature.
 """
 from __future__ import annotations
 
@@ -157,8 +153,9 @@ def compute_accessibility(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
           dist_school_m, dist_elementary_m,
           dist_bus_stop_m,
           dist_bus_route_m,
-          n_medical_{r}m, n_school_{r}m, n_bus_stop_{r}m  (per buffer radius),
-          community_facility_STUB  (NaN until P05 data arrives)
+          dist_community_facility_m,
+          n_medical_{r}m, n_school_{r}m, n_bus_stop_{r}m,
+          n_community_facility_{r}m  (per buffer radius)
     """
     if cfg is None:
         cfg = _load_cfg()
@@ -325,20 +322,38 @@ def compute_accessibility(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
     dist_br = _euclidean_dist_line(aza_pts, br_all, aza_id_col)
     out = out.merge(dist_br.rename("dist_bus_route_m"), on=aza_id_col, how="left")
 
-    # --- Community facilities (P05) — STUB ---
-    p05_aomori = nlni_cfg["community_facilities"]["aomori"]
-    p05_akita = nlni_cfg["community_facilities"]["akita"]
-    if p05_aomori is None or p05_akita is None:
-        print("  WARNING: P05 community-facility paths are null in config. "
-              "community_facility columns will be NaN until data is added.")
+    # --- Community facilities (P05) ---
+    print("Computing community-facility accessibility...")
+    p05_cfg = nlni_cfg["community_facilities"]
+    p05_aomori_path = p05_cfg.get("aomori")
+    p05_akita_path = p05_cfg.get("akita")
+    if p05_aomori_path is None or p05_akita_path is None:
+        print("  WARNING: P05 paths are null in config; columns will be NaN.")
         out["dist_community_facility_m"] = np.nan
         for r in buffers:
             out[f"n_community_facility_{r}m"] = np.nan
     else:
-        raise NotImplementedError(
-            "P05 community-facility loading not yet implemented. "
-            "Set nlni.community_facilities paths in config and re-run."
+        p05_assumed = p05_cfg.get("assumed_crs", "EPSG:4612")
+        p05_ao = _load_nlni_points(
+            data_root / p05_aomori_path, assumed_crs=p05_assumed,
+        ).to_crs(crs_proj)
+        p05_ak = _load_nlni_points(
+            data_root / p05_akita_path, assumed_crs=p05_assumed,
+        ).to_crs(crs_proj)
+        p05_all = gpd.GeoDataFrame(
+            pd.concat([p05_ao, p05_ak], ignore_index=True), crs=crs_proj,
         )
+        dist_p05 = _euclidean_dist_point(aza_pts, p05_all, aza_id_col)
+        out = out.merge(dist_p05.rename("dist_community_facility_m"),
+                        on=aza_id_col, how="left")
+        for r in buffers:
+            cnt = _buffer_count(aza_pts, p05_all, r, aza_id_col)
+            out = out.merge(
+                cnt.rename(f"n_community_facility_{r}m"),
+                left_on=aza_id_col, right_index=True, how="left",
+            )
+        print(f"  P05: {len(p05_all)} facilities loaded "
+              f"(Aomori {len(p05_ao)} + Akita {len(p05_ak)}).")
 
     # --- Final key alignment assertion ---
     _assert_key_alignment(out, aza, aza_id_col)

@@ -541,36 +541,152 @@ def _load_hls_vacancy(cfg: Dict[str, Any]) -> pd.DataFrame:
 # 5. Kaso flag
 # ---------------------------------------------------------------------------
 
+def _normalize_old_muni_name(name: str) -> str:
+    """
+    Normalize a pre-merger municipality name for matching.
+
+    Strips the leading 旧 ("former") prefix used in the kaso designation
+    list and unifies the small/large ke variants, which differ between the
+    designation PDF (碇ヶ関村) and N03 2000 (碇ケ関村).
+    """
+    name = str(name).strip()
+    if name.startswith("旧"):  # 旧
+        name = name[1:]
+    return name.replace("ヶ", "ケ")  # ヶ -> ケ
+
+
+def _load_premerger_boundaries(cfg: Dict[str, Any]) -> Any:
+    """
+    Load pre-Heisei-merger municipal polygons (N03 2000-10-01 vintage),
+    dissolved to one (multi)polygon per pre-merger municipality code.
+    """
+    import geopandas as gpd
+
+    data_root = Path(cfg["data_root"])
+    k_cfg = cfg["kaso"]
+    name_col = k_cfg["muni_name_col"]
+    code_col = k_cfg["muni_code_col"]
+
+    frames = []
+    for pref in ("aomori", "akita"):
+        shp = data_root / k_cfg["premerger_boundaries"][pref]
+        g = gpd.read_file(shp, encoding=k_cfg["encoding"])
+        if g.crs is None:
+            g = g.set_crs(k_cfg["assumed_crs"])
+        frames.append(g)
+
+    gdf = gpd.GeoDataFrame(
+        pd.concat(frames, ignore_index=True), crs=frames[0].crs,
+    )
+    gdf = gdf[gdf[name_col].notna() & gdf[code_col].notna()]
+    gdf = gdf.dissolve(by=code_col, as_index=False)
+    gdf = gdf.to_crs(cfg["crs_project"])
+    print(f"  Pre-merger boundaries: {len(gdf)} municipalities (N03 2000).")
+    return gdf[[code_col, name_col, "geometry"]]
+
+
+def _assign_old_muni(
+    aza_df: pd.DataFrame, aza_id_col: str, cfg: Dict[str, Any],
+) -> pd.Series:
+    """
+    Map each aza to the name of the pre-merger municipality containing
+    its representative point.  Returns Series indexed like aza_df.
+
+    Points that miss every polygon (coastline mismatch between the aza
+    layer and N03 2000) fall back to the nearest polygon.
+    """
+    import geopandas as gpd
+
+    name_col = cfg["kaso"]["muni_name_col"]
+
+    polys = _load_premerger_boundaries(cfg)
+
+    gpkg = Path(cfg["phase_a_root"]) / cfg["phase_a"]["aza_polygons"]
+    aza_geo = gpd.read_file(gpkg)
+    aza_geo = aza_geo.dissolve(by="unit_id", as_index=False)
+    aza_geo = aza_geo.to_crs(cfg["crs_project"])
+    pts = gpd.GeoDataFrame(
+        aza_geo[["unit_id"]],
+        geometry=aza_geo.representative_point(),
+        crs=aza_geo.crs,
+    )
+
+    joined = gpd.sjoin(pts, polys, how="left", predicate="within")
+    joined = joined[~joined.index.duplicated(keep="first")]
+
+    missed = joined[name_col].isna()
+    if missed.any():
+        near = gpd.sjoin_nearest(
+            pts.loc[joined.index[missed]], polys, how="left",
+        )
+        near = near[~near.index.duplicated(keep="first")]
+        joined.loc[near.index, name_col] = near[name_col]
+        print(f"  {int(missed.sum())} aza points outside all pre-merger "
+              "polygons -- assigned to nearest.")
+
+    lookup = joined.set_index("unit_id")[name_col]
+    return aza_df[aza_id_col].map(lookup)
+
+
 def _build_kaso_flags(
-    aza_df: pd.DataFrame, aza_id_col: str,
+    aza_df: pd.DataFrame, aza_id_col: str, cfg: Dict[str, Any],
 ) -> pd.DataFrame:
     """
     Assign kaso designation flags per aza.
 
-    kaso_type: 2 = 全部過疎, 1 = 一部過疎 (municipality-level;
-               旧町村 boundary matching requires additional spatial data),
+    kaso_type: 2 = 全部過疎 (whole municipality designated),
+               1 = 一部過疎, resolved to aza accuracy by point-in-polygon
+                   against pre-merger (N03 2000) 旧町村 boundaries: only
+                   aza inside a designated 旧町村 area inherit the flag,
                0 = no designation.
+
+    Falls back to municipality-level 一部過疎 flags (every aza of the
+    municipality gets 1) if the boundary shapefiles are unavailable.
     """
     flags = aza_df[[aza_id_col]].copy()
     flags["kaso_type"] = 0
     flags["kaso_flag"] = 0
 
-    for _, row in aza_df.iterrows():
-        uid = row[aza_id_col]
-        parts = str(uid).split(":")
-        if len(parts) < 3:
-            continue
-        pref_name = parts[1]   # "Aomori" or "Akita"
-        city_name_ja = str(row.get("city_name_ja", "")).strip()
+    pref_names = aza_df[aza_id_col].astype(str).str.split(":").str[1]
+    city_names = aza_df.get(
+        "city_name_ja", pd.Series("", index=aza_df.index),
+    ).fillna("").astype(str).str.strip()
 
-        # Full municipality kaso
-        if city_name_ja in _KASO_ZENBU.get(pref_name, []):
-            flags.loc[flags[aza_id_col] == uid, "kaso_type"] = 2
-            flags.loc[flags[aza_id_col] == uid, "kaso_flag"] = 1
-        # Partial kaso (municipality-level flag; roaza-level match not implemented)
-        elif city_name_ja in _KASO_ICHIBU.get(pref_name, {}):
-            flags.loc[flags[aza_id_col] == uid, "kaso_type"] = 1
-            flags.loc[flags[aza_id_col] == uid, "kaso_flag"] = 1
+    zenbu = pd.Series(False, index=aza_df.index)
+    ichibu_cand = pd.Series(False, index=aza_df.index)
+    for pref in ("Aomori", "Akita"):
+        in_pref = pref_names == pref
+        zenbu |= in_pref & city_names.isin(_KASO_ZENBU.get(pref, []))
+        ichibu_cand |= in_pref & city_names.isin(_KASO_ICHIBU.get(pref, {}))
+
+    flags.loc[zenbu, "kaso_type"] = 2
+    flags.loc[zenbu, "kaso_flag"] = 1
+
+    # Partial kaso: point-in-polygon against pre-merger boundaries.
+    try:
+        old_muni = _assign_old_muni(aza_df, aza_id_col, cfg)
+        spatial_ok = True
+    except Exception as e:  # missing shapefile, bad CRS, ...
+        print(f"  WARNING: pre-merger boundary join failed ({e}); "
+              "falling back to municipality-level 一部過疎 flags.")
+        spatial_ok = False
+
+    if spatial_ok:
+        for pref in ("Aomori", "Akita"):
+            for city, old_names in _KASO_ICHIBU.get(pref, {}).items():
+                designated = {_normalize_old_muni_name(n) for n in old_names}
+                cand = ichibu_cand & (pref_names == pref) & (city_names == city)
+                inside = cand & old_muni.map(
+                    lambda n: _normalize_old_muni_name(n) in designated,
+                    na_action="ignore",
+                ).fillna(False)
+                flags.loc[inside, "kaso_type"] = 1
+                flags.loc[inside, "kaso_flag"] = 1
+                print(f"  {pref}/{city}: {int(inside.sum())}/{int(cand.sum())} "
+                      "aza inside designated pre-merger area")
+    else:
+        flags.loc[ichibu_cand, "kaso_type"] = 1
+        flags.loc[ichibu_cand, "kaso_flag"] = 1
 
     n_kaso = int((flags["kaso_flag"] == 1).sum())
     print(f"  Kaso flags: {n_kaso}/{len(flags)} aza designated "
@@ -787,7 +903,7 @@ def build_feature_matrix(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
 
     # ---- 5. Kaso flag ---------------------------------------------------
     print("Building kaso designation flags...")
-    kaso = _build_kaso_flags(base, aza_id_col)
+    kaso = _build_kaso_flags(base, aza_id_col, cfg)
     base = base.merge(kaso, on=aza_id_col, how="left")
 
     # ---- 6. Merger flag (broadcast muni -> aza) -------------------------

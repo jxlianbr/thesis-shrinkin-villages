@@ -97,6 +97,21 @@ finance:
     std_fiscal_need:    "基準財政需要額"
     real_balance:       "実質収支"
 
+# --- Kaso designation (一部過疎 aza-accuracy) -------------------------------
+kaso:
+  # Pre-Heisei-merger municipal boundaries (MLIT KSJ N03, 2000-10-01 vintage;
+  # predates all six mergers affecting the 一部過疎 municipalities, 2005-2006).
+  # Used to resolve partial designation to aza accuracy: only aza whose
+  # representative point falls inside a designated 旧町村 polygon inherit
+  # kaso_type=1; other aza of the same municipality get 0.
+  premerger_boundaries:
+    aomori: "kaso_list/boundaries_2000/pref_02/N03-001001_02-g_AdministrativeBoundary.shp"
+    akita:  "kaso_list/boundaries_2000/pref_05/N03-001001_05-g_AdministrativeBoundary.shp"
+  encoding: "cp932"          # DBF is Shift_JIS
+  assumed_crs: "EPSG:4612"   # KS-META metadata: JGD2000 (B, L); shapefile has no .prj
+  muni_name_col: "N03_004"   # pre-merger municipality name (e.g. 相馬村, 碇ケ関村)
+  muni_code_col: "N03_007"   # 5-digit JIS code of the pre-merger municipality
+
 # --- Heisei merger records (relative to data_root) ------------------------
 merger:
   file_1: "merger_data_japan/000283317.xls"

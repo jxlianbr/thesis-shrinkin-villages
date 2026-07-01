@@ -3,7 +3,7 @@
   "target_col": "physical_residual",
   "residual_source": "target_dw_bare_robust_trajectory.parquet",
   "weights": "queen",
-  "cv_mean_r2": -0.0021,
+  "cv_mean_r2": 0.003,
   "moran_target_residual": {
     "morans_i": 0.4345,
     "expected_i": -0.0001,
@@ -15,9 +15,9 @@
     "permutations": 999
   },
   "moran_oof_residual": {
-    "morans_i": 0.408,
+    "morans_i": 0.4058,
     "expected_i": -0.0001,
-    "z_sim": 53.4214,
+    "z_sim": 53.0852,
     "p_sim": 0.001,
     "significant_005": true,
     "n_units": 7448,

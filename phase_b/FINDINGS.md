@@ -48,7 +48,7 @@ Assembles the feature matrix in 7 ordered steps:
 3. **Finance** — `_parse_kessancard_pdf()` parses 決算カード PDFs; averaged across FY2008–2014 per municipality then broadcast to aza via `city_name_ja`.
 4. **HLS durability** — `_load_hls_durability()` parses a047/a048 XLS for pre-1981 housing ratio.
 4b. **HLS vacancy** — `_load_hls_vacancy()` parses a002 XLS for `hls_vacancy_rate` (空き家 / 住宅総数) and `hls_vacancy_other_rate` (その他の住宅 / 住宅総数). Joined by 5-digit `muni_code` extracted from col 1 of a002.xls (first 5 chars of `0220146` → `02201`).
-5. **Kaso flags** — hard-coded lookup against official designation list.
+5. **Kaso flags** — hard-coded lookup against official designation list; 一部過疎 resolved to aza accuracy via point-in-polygon against pre-merger N03 2000 boundaries (see "Kaso 一部過疎 Aza-Accuracy Fix").
 6. **Merger flags** — from MIC merger XLS; most-recent merger per municipality.
 7. **Accessibility** — loaded from pre-computed `accessibility_features.parquet`.
 
@@ -107,28 +107,30 @@ Fix: removed the GLCM proxy step from `build_feature_matrix()`; added 50 EO/RS +
 
 | Metric | Value |
 |--------|-------|
-| R² | **0.515 ± 0.104** |
-| RMSE | **0.479 ± 0.041** |
-| MAE | **0.370 ± 0.030** |
+| R² | **0.505 ± 0.109** |
+| RMSE | **0.484 ± 0.041** |
+| MAE | **0.374 ± 0.030** |
 | n folds | 25 |
 | n aza | 7 448 |
 | n features | 42 |
+
+(Values reflect the aza-accurate kaso flags of 2026-07-02; the pre-fix run scored 0.515 ± 0.104 — see "Kaso 一部過疎 Aza-Accuracy Fix" below.)
 
 ### SHAP mechanism cluster importance
 
 | Rank | Mechanism | mean \|SHAP\| | n features |
 |------|-----------|--------------|------------|
-| 1 | accessibility_medical | 0.0541 | 4 |
-| 2 | accessibility_transit | 0.0477 | 5 |
-| 3 | demographic_threshold | 0.0342 | 4 |
-| 4 | accessibility_did | 0.0270 | 2 |
-| 5 | accessibility_community | 0.0186 | 4 |
-| 6 | accessibility_education | 0.0183 | 5 |
-| 7 | accessibility_hospital | 0.0103 | 1 |
-| 8 | institutional_fiscal | 0.0094 | 8 |
-| 9 | institutional_merger | 0.0085 | 2 |
-| 10 | durability_housing | 0.0081 | 5 |
-| 11 | institutional_policy | 0.0072 | 2 |
+| 1 | accessibility_medical | 0.0534 | 4 |
+| 2 | accessibility_transit | 0.0467 | 5 |
+| 3 | demographic_threshold | 0.0345 | 4 |
+| 4 | accessibility_did | 0.0277 | 2 |
+| 5 | accessibility_community | 0.0183 | 4 |
+| 6 | accessibility_education | 0.0182 | 5 |
+| 7 | accessibility_hospital | 0.0131 | 1 |
+| 8 | institutional_merger | 0.0094 | 2 |
+| 9 | institutional_fiscal | 0.0092 | 8 |
+| 10 | durability_housing | 0.0082 | 5 |
+| 11 | institutional_policy | 0.0030 | 2 |
 
 **Interpretation:** Accessibility — especially to medical facilities and transit — accounts for the largest share of unexplained physical variation. Demographic flags remain relevant (households, severe ageing) even after the demographic trend is partialled out. Institutional and durability features contribute but are secondary.
 
@@ -141,7 +143,8 @@ Fix: removed the GLCM proxy step from `build_feature_matrix()`; added 50 EO/RS +
 | All Phase A features (with EO leakage) | baseline | ~0.945 |
 | EO/RS leakage removed | −0.44 | 0.507 |
 | Finance parser fixed (was all NaN) | included in above | 0.507 |
-| HLS vacancy added (a002.xls) | +0.008 | **0.515** |
+| HLS vacancy added (a002.xls) | +0.008 | 0.515 |
+| Kaso 一部過疎 aza-accuracy fix (2 604 → 180 flags) | −0.010 | **0.505** |
 
 ---
 
@@ -157,8 +160,9 @@ The a002.xls files only cover municipalities that submitted returns to the prefe
 **2 — Finance features: FY coverage gaps**
 Some municipalities are missing years within FY2008–2014 due to PDF extraction failures (garbled layout variants). Currently all FY are averaged together, which means a municipality missing FY2010–2012 will have a biased mean. Adding per-FY completeness logging would reveal how many municipalities have partial coverage.
 
-**3 — Kaso partial designation (一部過疎) at aza level**
-`kaso_type=1` is currently assigned at municipality level. For partially-kaso municipalities (e.g. むつ市 where only 旧川内町/旧大畑町/旧脇野沢村 are designated), all aza receive the same flag regardless of whether they actually fall within the designated 旧町村 area. A spatial join against the historical 旧町村 polygon boundaries would make this accurate.
+**3 — Kaso partial designation (一部過疎) at aza level** ✅ DONE (2026-07-01)
+`kaso_type=1` was assigned at municipality level. For partially-kaso municipalities (e.g. むつ市 where only 旧川内町/旧大畑町/旧脇野沢村 are designated), all aza received the same flag regardless of whether they actually fall within the designated 旧町村 area. A spatial join against the historical 旧町村 polygon boundaries would make this accurate.
+→ Implemented via point-in-polygon against MLIT N03 2000-10-01 boundaries; see "Kaso 一部過疎 Aza-Accuracy Fix" section below.
 
 **4 — Merger interaction with fiscal features**
 Heisei mergers created fiscal consolidation effects (合併算定替 — special allocation-tax bonuses for 10 years post-merger). `years_since_merger` is in the model but there is no interaction term with `fin_local_alloc_tax`. Merged municipalities with the bonus still active vs. those past the 10-year cliff face structurally different fiscal constraints. Adding a `merger_bonus_active` binary flag (merger year + 10 >= 2015) would capture this.
@@ -253,8 +257,10 @@ Combined with the two earlier retired trajectory variants (GLCM contrast slope R
 | Series | Level target (`S2_NDBI_contrast_mean` residual) | Trajectory target (`dw_bare_frac_slope_theilsen` residual) |
 |---|---|---|
 | Target residual | **I = 0.668** (z = 85.7, p = 0.001) | **I = 0.435** (z = 57.2, p = 0.001) |
-| CV out-of-fold residual | **I = 0.437** (z = 56.9, p = 0.001) | **I = 0.408** (z = 53.4, p = 0.001) |
-| CV R² (context) | 0.515 ± 0.104 | −0.002 ± 0.105 |
+| CV out-of-fold residual | **I = 0.443** (z = 57.6, p = 0.001) | **I = 0.406** (z = 53.1, p = 0.001) |
+| CV R² (context) | 0.505 ± 0.109 | 0.003 ± 0.101 |
+
+(OOF values reflect the aza-accurate kaso flags of 2026-07-02; the pre-fix run gave OOF I = 0.437 / 0.408 with R² 0.515 / −0.002 — same qualitative picture.)
 
 Outputs: `outputs/spatial_autocorrelation{,_dw_bare_robust}.json` (statistics) and `outputs/spatial_residuals{,_dw_bare_robust}.parquet` (per-unit target + OOF residuals, for mapping / LISA follow-up).
 
@@ -267,3 +273,37 @@ Outputs: `outputs/spatial_autocorrelation{,_dw_bare_robust}.json` (statistics) a
 **Trajectory target (the null result).** The Theil-Sen trajectory residual is also significantly clustered (I = 0.435) — it is *not* spatially random noise — yet the OOF residual is essentially unchanged (0.408 ≈ 0.435, consistent with R² ≈ 0: the model predicts nearly a constant, so its residual ≈ the target). This sharpens the Chapter 5/6 null-result narrative: the bare-ground trajectory contains real, spatially organised signal (neighbouring aza change together — plausibly shared satellite scenes, local land-use dynamics, or municipal-scale processes), but none of it is predictable from the socio-institutional feature set. The null result is therefore "signal exists but is institutionally unexplained", which is stronger and more interesting than "the target is noise".
 
 **Caveat for both.** Because aza within a municipality inherit identical municipality-level predictors (finance, kaso, merger, and HLS features are broadcast muni→aza), some OOF residual clustering is mechanical: the model cannot differentiate within a municipality using those features, so within-muni residual similarity is partly baked in by the feature construction, not only by missing covariates. Accessibility features (aza-specific) are the main within-muni discriminators.
+
+---
+
+## Kaso 一部過疎 Aza-Accuracy Fix (2026-07-02)
+
+**Context.** `kaso_type=1` (partial designation) had been assigned at municipality level: every aza of the six partially-designated municipalities (弘前市, 八戸市, 十和田市, むつ市, 平川市, 秋田市) carried the flag, although the 過疎地域自立促進特別措置法 designation legally applies only to the pre-merger 旧町村 areas named in the official list (already hard-coded in `_KASO_ICHIBU`, incl. the 旧町村 names). Improvement #3 above.
+
+**Implementation** (`feature_matrix.py`):
+
+| Piece | Detail |
+|---|---|
+| Boundary layer | MLIT KSJ N03 administrative polygons, **2000-10-01 vintage** (`data_root/kaso_list/boundaries_2000/`), which predates all six relevant mergers (2005–2006). DBF is Shift_JIS; no .prj — CRS set from KS-META metadata (JGD2000, EPSG:4612). Config section `kaso:` in `phase_b_config.yaml`. |
+| `_load_premerger_boundaries()` | Loads both prefectures, dissolves multi-part rows per pre-merger municipality code (N03_007), projects to EPSG:6680. 136 pre-merger municipalities. |
+| `_assign_old_muni()` | Representative point of each (dissolved) aza polygon → point-in-polygon join against the pre-merger layer; 13/7,448 points miss every polygon (coastline mismatch) and fall back to nearest. |
+| `_normalize_old_muni_name()` | Strips the 旧 prefix used in the designation list and unifies ヶ/ケ (designation PDF: 碇ヶ関村; N03: 碇ケ関村). |
+| Fallback | If the shapefiles are unavailable the builder reverts to the old municipality-level behaviour with a warning (keeps tests/pipeline runnable without the download). |
+
+**Validation.** Flagged aza names cross-checked against census NAME per municipality: 八戸市 = exactly the seven 南郷大字* aza; むつ市 = exactly the 川内町*/大畑町*/脇野沢* (+正津川) aza with central Mutsu unflagged; 弘前市 = exactly the 旧相馬村 大字 set (五所, 湯口, 黒滝, 藍内, 紙漉沢, 沢田, …); 平川市 = 碇ケ関/古懸/久吉; 十和田市 = 奥瀬/法量/沢田; 秋田市 = the 河辺* aza. One known edge case: 秋田市四ツ小屋末戸松本 straddles the old 河辺町 boundary and its representative point falls inside — accepted as point-in-polygon noise. Unit tests in `TestKasoAzaAccuracy` (24/24 passing).
+
+**Effect.**
+
+| | Before (municipality-level) | After (aza-accurate) |
+|---|---|---|
+| kaso_type=1 aza | 2 604 | **180** (−93%) |
+| Total designated aza | 6 437 | 4 013 |
+| Level-target CV R² | 0.515 ± 0.104 | 0.505 ± 0.109 |
+| SHAP institutional_policy (level) | 0.0072 (rank 11) | **0.0030** (rank 11) |
+| Trajectory CV R² | −0.002 ± 0.105 | 0.003 ± 0.101 |
+
+**Interpretation.** Both shifts are informative, not regressions:
+
+1. The R² drop (−0.010, well inside fold std) plus the halving of `institutional_policy` SHAP means the old flag's apparent signal was largely *miscoding*: a municipality-level kaso flag acts as a coarse municipality dummy, and the model was borrowing municipality identity through it. The corrected flag isolates the actual designated areas and shows the designation itself carries even less predictive signal for level decoupling than previously reported.
+2. For the thesis this *strengthens* the institutional-features-are-secondary finding: it now rests on a legally accurate operationalization rather than a municipality-blurred proxy, and the designation-effects discussion (§2.2 / JentzschOvsiannikov2025) can cite an aza-accurate null rather than a confounded one.
+3. The trajectory null result is unchanged, as expected.

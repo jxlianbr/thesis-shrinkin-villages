@@ -460,3 +460,56 @@ class TestSpatialAutocorrelation:
         aligned, mask = _align_to_units(gdf, want)
         assert mask.tolist() == [True, True, False]
         assert aligned["unit_id"].tolist() == ["u0101", "u0000"]
+
+
+# ===========================================================================
+# kaso aza-accuracy tests
+# ===========================================================================
+
+class TestKasoAzaAccuracy:
+    def test_normalize_old_muni_name(self):
+        """Strip 旧 prefix and unify small/large ke variants."""
+        from feature_matrix import _normalize_old_muni_name
+        assert _normalize_old_muni_name("旧相馬村") == "相馬村"
+        # 旧碇ヶ関村 (small ヶ, designation PDF) == 碇ケ関村 (large ケ, N03)
+        assert (_normalize_old_muni_name("旧碇ヶ関村")
+                == "碇ケ関村")
+        # No-op for already-normalized names
+        assert _normalize_old_muni_name("南郷村") == "南郷村"
+
+    def test_partial_kaso_selects_only_designated_area(self, monkeypatch):
+        """Only aza whose point falls in a designated 旧町村 get kaso_type=1."""
+        import feature_matrix as fmod
+
+        aza_df = pd.DataFrame({
+            "unit_id": [
+                "aza:Aomori:022020001",  # Hirosaki, inside 旧相馬村
+                "aza:Aomori:022020002",  # Hirosaki, outside (old Hirosaki)
+                "aza:Aomori:023040001",  # Yomogita: 全部過疎
+                "aza:Aomori:024060001",  # no designation
+            ],
+            "city_name_ja": ["弘前市", "弘前市", "蓬田村", "おいらせ町"],
+        })
+        old_muni = pd.Series(["相馬村", "弘前市", "蓬田村", "百石町"],
+                             index=aza_df.index)
+        monkeypatch.setattr(fmod, "_assign_old_muni",
+                            lambda df, col, cfg: old_muni)
+
+        flags = fmod._build_kaso_flags(aza_df, "unit_id", _CFG)
+        assert flags["kaso_type"].tolist() == [1, 0, 2, 0]
+        assert flags["kaso_flag"].tolist() == [1, 0, 1, 0]
+
+    def test_fallback_to_muni_level_when_boundaries_missing(self, monkeypatch):
+        """If the boundary join fails, every 一部過疎 aza keeps the flag."""
+        import feature_matrix as fmod
+
+        def _boom(df, col, cfg):
+            raise FileNotFoundError("no shapefile")
+        monkeypatch.setattr(fmod, "_assign_old_muni", _boom)
+
+        aza_df = pd.DataFrame({
+            "unit_id": ["aza:Aomori:022020001", "aza:Aomori:022020002"],
+            "city_name_ja": ["弘前市", "弘前市"],
+        })
+        flags = fmod._build_kaso_flags(aza_df, "unit_id", _CFG)
+        assert flags["kaso_type"].tolist() == [1, 1]

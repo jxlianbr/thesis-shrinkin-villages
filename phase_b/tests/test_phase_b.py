@@ -513,3 +513,17 @@ class TestKasoAzaAccuracy:
         })
         flags = fmod._build_kaso_flags(aza_df, "unit_id", _CFG)
         assert flags["kaso_type"].tolist() == [1, 1]
+
+    def test_zenbu_kaso_matches_ke_variant(self, monkeypatch):
+        """全部過疎 matching must survive the ヶ/ケ variant (鰺ヶ沢町 bug)."""
+        import feature_matrix as fmod
+        monkeypatch.setattr(fmod, "_assign_old_muni",
+                            lambda df, col, cfg: pd.Series(
+                                ["x"], index=df.index))
+        # Census spells it 鰺ヶ沢町; the designation list has 鰺ケ沢町.
+        aza_df = pd.DataFrame({
+            "unit_id": ["aza:Aomori:023210001"],
+            "city_name_ja": ["鰺ヶ沢町"],
+        })
+        flags = fmod._build_kaso_flags(aza_df, "unit_id", _CFG)
+        assert flags["kaso_type"].tolist() == [2]

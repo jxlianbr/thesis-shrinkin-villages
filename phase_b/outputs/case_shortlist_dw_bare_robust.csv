@@ -5,7 +5,7 @@ aza:Akita:052101390,0.03261589288908341,hls_vacancy_rate [durability_housing]; d
 aza:Akita:05212014001,0.02858768470148517,hls_vacancy_rate [durability_housing]; household_size [demographic_threshold]; hls_total_dwellings [durability_housing]
 aza:Akita:05210038003,0.025734534113565268,hls_vacancy_rate [durability_housing]; household_size [demographic_threshold]; dist_bus_route_m [accessibility_transit]
 aza:Akita:05434019005,0.023739261117822805,hls_vacancy_rate [durability_housing]; household_size [demographic_threshold]; dist_bus_route_m [accessibility_transit]
-aza:Aomori:02203069206,0.02111537858201854,dist_did_m [accessibility_did]; dist_bus_route_m [accessibility_transit]; hls_vacancy_rate [durability_housing]
+aza:Aomori:02203069206,0.02111537858201854,hls_vacancy_rate [durability_housing]; n_bus_stop_5000m [accessibility_transit]; dist_did_m [accessibility_did]
 aza:Akita:05201070002,0.020352518747114173,n_bus_stop_1000m [accessibility_transit]; hls_vacancy_rate [durability_housing]; hls_total_dwellings [durability_housing]
 aza:Aomori:02405008005,0.02002657134436629,fin_total_expenditure [institutional_fiscal]; hls_vacancy_rate [durability_housing]; household_size [demographic_threshold]
 aza:Aomori:02203078046,0.019681123729512435,hls_vacancy_rate [durability_housing]; dist_did_m [accessibility_did]; dist_bus_route_m [accessibility_transit]

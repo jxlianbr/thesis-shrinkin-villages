@@ -1,12 +1,12 @@
 mechanism,mean_abs_shap,n_features,features
-accessibility_medical,0.05335713201202452,4,"dist_medical_m, n_medical_1000m, n_medical_3000m, n_medical_5000m"
-accessibility_transit,0.04673860454931855,5,"dist_bus_route_m, dist_bus_stop_m, n_bus_stop_1000m, n_bus_stop_3000m, n_bus_stop_5000m"
-demographic_threshold,0.03447036614306853,4,"elderly_flag_severely, elderly_flag_shrinking, household_size, household_size_small"
-accessibility_did,0.02766093611717224,2,"dist_did_m, in_did"
-accessibility_community,0.018282181350514293,4,"dist_community_facility_m, n_community_facility_1000m, n_community_facility_3000m, n_community_facility_5000m"
-accessibility_education,0.018166315322741867,5,"dist_elementary_m, dist_school_m, n_school_1000m, n_school_3000m, n_school_5000m"
-accessibility_hospital,0.01305778231471777,1,dist_hospital_m
-institutional_merger,0.009420433780178428,2,"merged_flag, years_since_merger"
-institutional_fiscal,0.009171229783532908,8,"fin_fiscal_strength_index, fin_local_alloc_tax, fin_local_tax, fin_real_balance, fin_std_fiscal_need, fin_std_fiscal_revenue, fin_total_expenditure, fin_total_revenue"
-durability_housing,0.008212073240429163,5,"hls_missing, hls_pre1981_ratio, hls_total_dwellings, hls_vacancy_other_rate, hls_vacancy_rate"
-institutional_policy,0.0030073304078541696,2,"kaso_flag, kaso_type"
+accessibility_medical,0.053922755643725395,4,"dist_medical_m, n_medical_1000m, n_medical_3000m, n_medical_5000m"
+accessibility_transit,0.046523183770477775,5,"dist_bus_route_m, dist_bus_stop_m, n_bus_stop_1000m, n_bus_stop_3000m, n_bus_stop_5000m"
+demographic_threshold,0.03439077896109666,4,"elderly_flag_severely, elderly_flag_shrinking, household_size, household_size_small"
+accessibility_did,0.02833175426349044,2,"dist_did_m, in_did"
+accessibility_community,0.018139694235287607,4,"dist_community_facility_m, n_community_facility_1000m, n_community_facility_3000m, n_community_facility_5000m"
+accessibility_education,0.017959737638011574,5,"dist_elementary_m, dist_school_m, n_school_1000m, n_school_3000m, n_school_5000m"
+accessibility_hospital,0.011144399642944336,1,dist_hospital_m
+institutional_merger,0.009579596458934247,2,"merged_flag, years_since_merger"
+institutional_fiscal,0.009188340089167468,8,"fin_fiscal_strength_index, fin_local_alloc_tax, fin_local_tax, fin_real_balance, fin_std_fiscal_need, fin_std_fiscal_revenue, fin_total_expenditure, fin_total_revenue"
+durability_housing,0.007848084252327681,5,"hls_missing, hls_pre1981_ratio, hls_total_dwellings, hls_vacancy_other_rate, hls_vacancy_rate"
+institutional_policy,0.004543911782093346,2,"kaso_flag, kaso_type"

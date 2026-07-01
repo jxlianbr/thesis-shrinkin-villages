@@ -107,30 +107,30 @@ Fix: removed the GLCM proxy step from `build_feature_matrix()`; added 50 EO/RS +
 
 | Metric | Value |
 |--------|-------|
-| R² | **0.505 ± 0.109** |
-| RMSE | **0.484 ± 0.041** |
-| MAE | **0.374 ± 0.030** |
+| R² | **0.508 ± 0.106** |
+| RMSE | **0.483 ± 0.040** |
+| MAE | **0.373 ± 0.029** |
 | n folds | 25 |
 | n aza | 7 448 |
 | n features | 42 |
 
-(Values reflect the aza-accurate kaso flags of 2026-07-02; the pre-fix run scored 0.515 ± 0.104 — see "Kaso 一部過疎 Aza-Accuracy Fix" below.)
+(Values reflect the corrected kaso flags of 2026-07-02 — 一部過疎 aza-accuracy + the 鰺ヶ沢町 ヶ/ケ fix; the pre-fix run scored 0.515 ± 0.104. See "Kaso 一部過疎 Aza-Accuracy Fix" below.)
 
 ### SHAP mechanism cluster importance
 
 | Rank | Mechanism | mean \|SHAP\| | n features |
 |------|-----------|--------------|------------|
-| 1 | accessibility_medical | 0.0534 | 4 |
-| 2 | accessibility_transit | 0.0467 | 5 |
-| 3 | demographic_threshold | 0.0345 | 4 |
-| 4 | accessibility_did | 0.0277 | 2 |
-| 5 | accessibility_community | 0.0183 | 4 |
-| 6 | accessibility_education | 0.0182 | 5 |
-| 7 | accessibility_hospital | 0.0131 | 1 |
-| 8 | institutional_merger | 0.0094 | 2 |
+| 1 | accessibility_medical | 0.0539 | 4 |
+| 2 | accessibility_transit | 0.0465 | 5 |
+| 3 | demographic_threshold | 0.0344 | 4 |
+| 4 | accessibility_did | 0.0283 | 2 |
+| 5 | accessibility_community | 0.0181 | 4 |
+| 6 | accessibility_education | 0.0180 | 5 |
+| 7 | accessibility_hospital | 0.0111 | 1 |
+| 8 | institutional_merger | 0.0096 | 2 |
 | 9 | institutional_fiscal | 0.0092 | 8 |
-| 10 | durability_housing | 0.0082 | 5 |
-| 11 | institutional_policy | 0.0030 | 2 |
+| 10 | durability_housing | 0.0078 | 5 |
+| 11 | institutional_policy | 0.0045 | 2 |
 
 **Interpretation:** Accessibility — especially to medical facilities and transit — accounts for the largest share of unexplained physical variation. Demographic flags remain relevant (households, severe ageing) even after the demographic trend is partialled out. Institutional and durability features contribute but are secondary.
 
@@ -144,7 +144,7 @@ Fix: removed the GLCM proxy step from `build_feature_matrix()`; added 50 EO/RS +
 | EO/RS leakage removed | −0.44 | 0.507 |
 | Finance parser fixed (was all NaN) | included in above | 0.507 |
 | HLS vacancy added (a002.xls) | +0.008 | 0.515 |
-| Kaso 一部過疎 aza-accuracy fix (2 604 → 180 flags) | −0.010 | **0.505** |
+| Kaso designation fixes (一部過疎 aza-accuracy 2 604 → 180 flags; 鰺ヶ沢町 ヶ/ケ variant) | −0.007 | **0.508** |
 
 ---
 
@@ -152,10 +152,11 @@ Fix: removed the GLCM proxy step from `build_feature_matrix()`; added 50 EO/RS +
 
 ### High priority
 
-**1 — HLS vacancy coverage for towns and villages**
+**1 — HLS vacancy coverage for towns and villages** ⛔ CLOSED (2026-07-02): no defensible fix exists
 The a002.xls files only cover municipalities that submitted returns to the prefectural government. 32/65 municipalities (all small towns and kaso-designated villages) have NaN for `hls_vacancy_rate`. These are the structurally most interesting units. Two possible fixes:
 - Aggregate aza-level vacancy from the raw 2013 census housing tables (tblT000848 or similar), which have full coverage.
 - Cross-check with the Ministry of Land Infrastructure Transport and Tourism (MLIT) Land Use Survey, which has municipality-level vacancy for all municipalities.
+→ Both paths investigated and found infeasible; the gap is a structural publication threshold of the survey, not missing files. See "HLS Vacancy Gap: Feasibility Verdict" section below.
 
 **2 — Finance features: FY coverage gaps**
 Some municipalities are missing years within FY2008–2014 due to PDF extraction failures (garbled layout variants). Currently all FY are averaged together, which means a municipality missing FY2010–2012 will have a biased mean. Adding per-FY completeness logging would reveal how many municipalities have partial coverage.
@@ -257,10 +258,10 @@ Combined with the two earlier retired trajectory variants (GLCM contrast slope R
 | Series | Level target (`S2_NDBI_contrast_mean` residual) | Trajectory target (`dw_bare_frac_slope_theilsen` residual) |
 |---|---|---|
 | Target residual | **I = 0.668** (z = 85.7, p = 0.001) | **I = 0.435** (z = 57.2, p = 0.001) |
-| CV out-of-fold residual | **I = 0.443** (z = 57.6, p = 0.001) | **I = 0.406** (z = 53.1, p = 0.001) |
-| CV R² (context) | 0.505 ± 0.109 | 0.003 ± 0.101 |
+| CV out-of-fold residual | **I = 0.441** (z = 57.4, p = 0.001) | **I = 0.406** (z = 53.1, p = 0.001) |
+| CV R² (context) | 0.508 ± 0.106 | 0.003 ± 0.102 |
 
-(OOF values reflect the aza-accurate kaso flags of 2026-07-02; the pre-fix run gave OOF I = 0.437 / 0.408 with R² 0.515 / −0.002 — same qualitative picture.)
+(OOF values reflect the corrected kaso flags of 2026-07-02; the pre-fix run gave OOF I = 0.437 / 0.408 with R² 0.515 / −0.002 — same qualitative picture.)
 
 Outputs: `outputs/spatial_autocorrelation{,_dw_bare_robust}.json` (statistics) and `outputs/spatial_residuals{,_dw_bare_robust}.parquet` (per-unit target + OOF residuals, for mapping / LISA follow-up).
 
@@ -294,16 +295,50 @@ Outputs: `outputs/spatial_autocorrelation{,_dw_bare_robust}.json` (statistics) a
 
 **Effect.**
 
-| | Before (municipality-level) | After (aza-accurate) |
+| | Before (municipality-level) | After (aza-accurate + 鰺ヶ沢町 fix) |
 |---|---|---|
 | kaso_type=1 aza | 2 604 | **180** (−93%) |
-| Total designated aza | 6 437 | 4 013 |
-| Level-target CV R² | 0.515 ± 0.104 | 0.505 ± 0.109 |
-| SHAP institutional_policy (level) | 0.0072 (rank 11) | **0.0030** (rank 11) |
-| Trajectory CV R² | −0.002 ± 0.105 | 0.003 ± 0.101 |
+| kaso_type=2 aza | 3 833 | 3 865 (+32 鰺ヶ沢町, see "HLS Vacancy Gap" section) |
+| Total designated aza | 6 437 | 4 045 |
+| Level-target CV R² | 0.515 ± 0.104 | 0.508 ± 0.106 |
+| SHAP institutional_policy (level) | 0.0072 (rank 11) | **0.0045** (rank 11) |
+| Trajectory CV R² | −0.002 ± 0.105 | 0.003 ± 0.102 |
 
 **Interpretation.** Both shifts are informative, not regressions:
 
-1. The R² drop (−0.010, well inside fold std) plus the halving of `institutional_policy` SHAP means the old flag's apparent signal was largely *miscoding*: a municipality-level kaso flag acts as a coarse municipality dummy, and the model was borrowing municipality identity through it. The corrected flag isolates the actual designated areas and shows the designation itself carries even less predictive signal for level decoupling than previously reported.
+1. The R² drop (−0.007, well inside fold std) plus the ~40% drop in `institutional_policy` SHAP (0.0072 → 0.0045) means the old flag's apparent signal was substantially *miscoding*: a municipality-level kaso flag acts as a coarse municipality dummy, and the model was borrowing municipality identity through it. The corrected flag isolates the actual designated areas and shows the designation itself carries even less predictive signal for level decoupling than previously reported.
 2. For the thesis this *strengthens* the institutional-features-are-secondary finding: it now rests on a legally accurate operationalization rather than a municipality-blurred proxy, and the designation-effects discussion (§2.2 / JentzschOvsiannikov2025) can cite an aza-accurate null rather than a confounded one.
 3. The trajectory null result is unchanged, as expected.
+
+---
+
+## HLS Vacancy Gap: Feasibility Verdict (2026-07-02)
+
+**Question.** Can `hls_vacancy_rate` be filled for the 32/65 municipalities carrying NaN (improvement #1 above)? Both recorded fix paths were investigated. **Verdict: no — the gap is structural, and the current NaN + `hls_missing` design is the correct and defensible treatment.**
+
+### Path A — "aggregate aza-level vacancy from raw census housing tables": infeasible in principle
+
+The premise was wrong. The Population Census does not enumerate vacant dwellings — a vacant dwelling has no household to enumerate. Verified directly: the on-disk 2015 small-area tables carry only population by sex (tblT000848: 人口総数/男/女/世帯総数) and the 5-year age breakdown (tblT000849). No aza-level housing-stock or vacancy table exists in any official statistic.
+
+### Path A' — other HLS vintages or tables: infeasible by survey design
+
+The 住宅・土地統計調査 is a sample survey that publishes municipal tables only for 市区 and towns/villages above a population threshold (人口1万5千人以上; e-Stat table titles state the exclusion explicitly). Verified against the data:
+- The 33 covered municipalities are exactly the 23 cities + the 10 largest towns (藤崎町, 板柳町, 七戸町, 東北町, おいらせ町, 五戸町, 南部町, 三種町, 美郷町, 羽後町).
+- The 2008-vintage tables already on disk (a002, a041-2/3) cover only 3 of the missing 32 (鶴田町, 野辺地町, 階上町 — above the threshold in 2008, below it by 2013), and mixing vintages for 3 units is not worth the inconsistency.
+- No HLS vintage or table number can cover the small kaso villages, because they are never in the published tabulations.
+
+### Path B — MLIT full-coverage municipal vacancy: does not exist
+
+The "MLIT Land Use Survey with municipality-level vacancy for all municipalities" recorded earlier does not check out: MLIT's own 空き家 policy material is built on HLS figures and inherits the same threshold. No official pre-2015 source provides municipal vacancy below the HLS publication threshold. (The Agricultural Census 農山村地域調査 covers every 農業集落 but does not collect vacancy.)
+
+### Implication for the thesis
+
+The NaN pattern is not sloppy data handling — it is the publication boundary of Japanese official statistics, and can be cited as such in Chapter 4: *vacancy statistics are unobservable for precisely the smallest, most kaso-designated municipalities*, which is itself a finding about the measurability of peripheral decline (connects to the §2.5 peripherization argument: the statistical apparatus itself thins out at the periphery). XGBoost's native missing-value handling plus the explicit `hls_missing` indicator is the appropriate model-side treatment, and `hls_missing` itself carries the "too small to be surveyed" signal.
+
+### Bonus finding: 2008 dilapidation tables on disk
+
+`housing_data_japan/2008/a041-2/3.xls` (Tables 18/19) contain 腐朽・破損の有無 (dilapidation) by tenure and construction period — a direct structural-deterioration measure related to improvement #9 (a057). Coverage is the same 市区+large-town subset (36 municipalities in 2008), so it would not fix the gap, but it could add a `hls_dilapidation_rate` predictor for covered municipalities if durability mechanisms ever need sharpening. Parked.
+
+### Side discovery fixed in passing: 鰺ヶ沢町 全部過疎 flag was silently dropped
+
+Listing the 32 vacancy-missing municipalities exposed that 鰺ヶ沢町 (02321) carried `kaso_flag=0` despite being 全部過疎-designated: the census spells it 鰺ヶ沢町 (small ヶ) while the hard-coded designation list has 鰺ケ沢町 (large ケ), and the 全部/一部 municipality-name match used raw string equality. Fixed by routing all designation-list matching through `_normalize_old_muni_name()` (the same ヶ/ケ normalization already used for the 旧町村 join); a full audit of all 65 municipalities against both lists confirmed 鰺ヶ沢町 was the only variant mismatch. Regression test added (`test_zenbu_kaso_matches_ke_variant`). This adds the 32 鰺ヶ沢町 aza to 全部過疎 (3,833 → 3,865 designated) and changes headline numbers slightly (updated in place above).

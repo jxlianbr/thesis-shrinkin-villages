@@ -652,12 +652,21 @@ def _build_kaso_flags(
         "city_name_ja", pd.Series("", index=aza_df.index),
     ).fillna("").astype(str).str.strip()
 
+    # Match on normalized names: census city_name_ja and the hard-coded
+    # designation list disagree on the small/large ke variant for some
+    # municipalities (census 鰺ヶ沢町 vs list 鰺ケ沢町), which silently
+    # unflagged a whole 全部過疎 town before 2026-07-02.
+    city_norm = city_names.map(_normalize_old_muni_name)
     zenbu = pd.Series(False, index=aza_df.index)
     ichibu_cand = pd.Series(False, index=aza_df.index)
     for pref in ("Aomori", "Akita"):
         in_pref = pref_names == pref
-        zenbu |= in_pref & city_names.isin(_KASO_ZENBU.get(pref, []))
-        ichibu_cand |= in_pref & city_names.isin(_KASO_ICHIBU.get(pref, {}))
+        zenbu_norm = {_normalize_old_muni_name(n)
+                      for n in _KASO_ZENBU.get(pref, [])}
+        ichibu_norm = {_normalize_old_muni_name(n)
+                       for n in _KASO_ICHIBU.get(pref, {})}
+        zenbu |= in_pref & city_norm.isin(zenbu_norm)
+        ichibu_cand |= in_pref & city_norm.isin(ichibu_norm)
 
     flags.loc[zenbu, "kaso_type"] = 2
     flags.loc[zenbu, "kaso_flag"] = 1
@@ -675,7 +684,8 @@ def _build_kaso_flags(
         for pref in ("Aomori", "Akita"):
             for city, old_names in _KASO_ICHIBU.get(pref, {}).items():
                 designated = {_normalize_old_muni_name(n) for n in old_names}
-                cand = ichibu_cand & (pref_names == pref) & (city_names == city)
+                cand = (ichibu_cand & (pref_names == pref)
+                        & (city_norm == _normalize_old_muni_name(city)))
                 inside = cand & old_muni.map(
                     lambda n: _normalize_old_muni_name(n) in designated,
                     na_action="ignore",

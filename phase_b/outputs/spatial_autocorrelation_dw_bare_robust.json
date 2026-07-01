@@ -17,7 +17,7 @@
   "moran_oof_residual": {
     "morans_i": 0.4058,
     "expected_i": -0.0001,
-    "z_sim": 53.0852,
+    "z_sim": 53.1097,
     "p_sim": 0.001,
     "significant_005": true,
     "n_units": 7448,

@@ -13,6 +13,56 @@ import numpy as np
 import pandas as pd
 
 
+def compute_ols_slope(
+    values: "pd.Series",
+    times: "pd.Series",
+    min_obs: int = 3,
+) -> float:
+    """
+    Normalised OLS trend slope for one aza unit.
+
+    Replicates the exact time-normalisation and minimum-observation logic
+    used inside aggregate_to_cross_section() so that slopes computed from
+    downstream code (e.g. Phase B target builder) are numerically identical
+    to those produced by the main preprocessing pipeline.
+
+    Parameters
+    ----------
+    values : pd.Series
+        Indicator values at each time step; NaN where the indicator is missing.
+    times : pd.Series
+        Corresponding timestamps (parseable by pd.to_datetime, e.g. 'YYYY-MM').
+        Must be positionally parallel to `values`.
+    min_obs : int
+        Minimum non-null observations required (pipeline uses 3).
+
+    Returns
+    -------
+    float
+        OLS slope on time normalised to [0, 1], rounded to 6 dp.
+        Returns np.nan when total time steps < min_obs, span == 0,
+        or non-null observation count < min_obs.
+    """
+    times_dt = pd.to_datetime(times)
+    order = times_dt.argsort().values          # positional sort indices
+    t_sorted = times_dt.iloc[order]
+    v_sorted = values.iloc[order]
+
+    t = (t_sorted - t_sorted.iloc[0]).dt.days.values.astype(float)
+    if len(t) < min_obs or t[-1] == 0:
+        return np.nan
+    t_norm = t / t[-1]
+
+    valid = v_sorted.notna().values            # numpy bool array
+    if valid.sum() < min_obs:
+        return np.nan
+
+    y = v_sorted.values[valid].astype(float)
+    t_valid = t_norm[valid]
+    coeffs = np.polyfit(t_valid, y, 1)
+    return round(float(coeffs[0]), 6)
+
+
 def aggregate_to_cross_section(
     df: pd.DataFrame, cfg: Dict[str, Any],
 ) -> pd.DataFrame:

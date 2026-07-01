@@ -157,9 +157,29 @@ def build_case_shortlist(
 # Main
 # ---------------------------------------------------------------------------
 
-def run_explain(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
+def run_explain(
+    cfg: Dict[str, Any] | None = None,
+    trajectory: bool = False,
+    ndbi: bool = False,
+    dw_bare: bool = False,
+    dw_bare_robust: bool = False,
+) -> Dict[str, Any]:
     """
     Load trained model + feature matrix, compute SHAP, export all artefacts.
+
+    Parameters
+    ----------
+    trajectory : bool
+        If True, loads the GLCM contrast-slope model (RETIRED — kept for reference).
+    ndbi : bool
+        If True, loads the NDBI_slope model (RETIRED — spatial gradient artifact).
+    dw_bare : bool
+        If True, loads the plain-OLS dw_bare_frac_slope model (SUPERSEDED
+        2026-06-30 — kept only for before/after comparison).
+    dw_bare_robust : bool
+        If True, loads the Theil-Sen, genuine-month-filtered dw_bare_frac
+        slope model (ACTIVE) and writes outputs to the *_dw_bare_robust
+        paths in config.
 
     Returns dict with: shap_df, mechanism_agg, case_shortlist.
     """
@@ -172,22 +192,60 @@ def run_explain(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
     taxonomy = cfg["explain"]["mechanism_taxonomy"]
     n_cases = int(cfg["explain"]["case_shortlist_n"])
 
+    # Select variant paths
+    if dw_bare_robust:
+        model_filename = "final_model_xgboost_dw_bare_robust.joblib"
+        res_key   = "residuals_dw_bare_robust"
+        shap_key  = "shap_values_dw_bare_robust"
+        case_key  = "case_shortlist_dw_bare_robust"
+        mech_file = "mechanism_importance_dw_bare_robust.csv"
+        tag = " [DW_BARE_ROBUST]"
+    elif dw_bare:
+        model_filename = "final_model_xgboost_dw_bare.joblib"
+        res_key   = "residuals_dw_bare"
+        shap_key  = "shap_values_dw_bare"
+        case_key  = "case_shortlist_dw_bare"
+        mech_file = "mechanism_importance_dw_bare.csv"
+        tag = " [DW_BARE]"
+    elif ndbi:
+        model_filename = "final_model_xgboost_ndbi.joblib"
+        res_key   = "residuals_ndbi"
+        shap_key  = "shap_values_ndbi"
+        case_key  = "case_shortlist_ndbi"
+        mech_file = "mechanism_importance_ndbi.csv"
+        tag = " [NDBI]"
+    elif trajectory:
+        model_filename = "final_model_xgboost_trajectory.joblib"
+        res_key   = "residuals_trajectory"
+        shap_key  = "shap_values_trajectory"
+        case_key  = "case_shortlist_trajectory"
+        mech_file = "mechanism_importance_trajectory.csv"
+        tag = " [TRAJECTORY]"
+    else:
+        model_filename = "final_model_xgboost.joblib"
+        res_key   = "residuals"
+        shap_key  = "shap_values"
+        case_key  = "case_shortlist"
+        mech_file = "mechanism_importance.csv"
+        tag = ""
+
     # Load final model
     import joblib
-    model_path = phase_b_root / "outputs" / "final_model_xgboost.joblib"
+    model_path = phase_b_root / "outputs" / model_filename
     if not model_path.exists():
         raise FileNotFoundError(
-            f"Trained model not found: {model_path}. Run cv_train.py first."
+            f"Trained model not found: {model_path}. "
+            f"Run cv_train.py{' --trajectory' if trajectory else ''} first."
         )
     model = joblib.load(model_path)
-    print(f"Loaded model from {model_path}")
+    print(f"Loaded model{tag} from {model_path}")
 
     # Load feature matrix
     fm_path = phase_b_root / cfg["output"]["feature_matrix"]
     fm = pd.read_parquet(fm_path)
 
     # Load residual target
-    res_path = phase_b_root / cfg["output"]["residuals"]
+    res_path = phase_b_root / cfg["output"][res_key]
     target_df = pd.read_parquet(res_path)
 
     data = fm.merge(
@@ -195,11 +253,31 @@ def run_explain(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
         on=aza_id_col, how="inner",
     )
 
-    # Determine feature columns (same logic as cv_train.py)
-    meta_cols = {aza_id_col, "pref_name", "muni_code", target_col,
-                 cfg["target"]["physical_indicator"],
-                 cfg["target"]["physical_indicator"] + "_fitted",
-                 "city_name_ja", "unit_code"}
+    # Determine feature columns — same logic as cv_train.py
+    meta_cols: set[str] = {
+        aza_id_col, "pref_name", "muni_code", target_col,
+        "city_name_ja", "unit_code",
+        cfg["target"]["physical_indicator"],
+        cfg["target"]["physical_indicator"] + "_fitted",
+    }
+    if trajectory:
+        pi_traj = cfg["target"]["physical_indicator_trajectory"]
+        meta_cols.add(pi_traj)
+        meta_cols.add(pi_traj + "_fitted")
+    if ndbi:
+        pi_ndbi = cfg["target"]["physical_indicator_ndbi"]
+        meta_cols.add(pi_ndbi)
+        meta_cols.add(pi_ndbi + "_fitted")
+    if dw_bare:
+        pi_dw = cfg["target"]["physical_indicator_dw_bare"]
+        meta_cols.add(pi_dw)
+        meta_cols.add(pi_dw + "_fitted")
+    if dw_bare_robust:
+        pi_dwr = cfg["target"]["physical_indicator_dw_bare_robust"]
+        meta_cols.add(pi_dwr)
+        meta_cols.add(pi_dwr + "_fitted")
+        meta_cols.add("n_genuine_months")
+
     feature_cols = [
         c for c in data.columns
         if c not in meta_cols
@@ -209,17 +287,21 @@ def run_explain(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
     ]
 
     X = data[feature_cols].astype(float)
-    valid = X.notna().all(axis=1) & data[target_col].notna()
+    # Keep all rows with a valid target; XGBoost TreeExplainer handles NaN in X
+    # via the trained missing-value branches — no imputation or row-dropping needed.
+    valid = data[target_col].notna()
     X, data_valid = X.loc[valid], data.loc[valid]
 
-    print(f"SHAP computation on {len(X)} aza units, {len(feature_cols)} features.")
+    n_nan_rows = int(X.isna().any(axis=1).sum())
+    print(f"SHAP computation{tag} on {len(X)} aza units, {len(feature_cols)} features "
+          f"({n_nan_rows} rows have NaN in X, handled natively).")
 
     # SHAP values
     shap_df = compute_shap(model, X, cfg)
 
     # Mechanism aggregation
     mech_agg = aggregate_by_mechanism(shap_df, taxonomy)
-    print("\nMechanism cluster importance:")
+    print(f"\nMechanism cluster importance{tag}:")
     for _, row in mech_agg.iterrows():
         print(f"  {row['mechanism']:40s}  mean_abs_shap={row['mean_abs_shap']:.4f} "
               f"(n={row['n_features']} features)")
@@ -228,20 +310,20 @@ def run_explain(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
     case_shortlist = build_case_shortlist(
         data_valid, shap_df, target_col, aza_id_col, n_cases, taxonomy,
     )
-    print(f"\nTop-{n_cases} positive residual cases (structurally deteriorating):")
+    print(f"\nTop-{n_cases} positive residual cases (structurally deteriorating){tag}:")
     print(case_shortlist[[aza_id_col, target_col, "top_shap_drivers"]].to_string())
 
     # Persist
-    shap_path = phase_b_root / cfg["output"]["shap_values"]
+    shap_path = phase_b_root / cfg["output"][shap_key]
     shap_path.parent.mkdir(parents=True, exist_ok=True)
     shap_df.to_parquet(shap_path, index=True)
     print(f"\nSHAP values saved -> {shap_path}")
 
-    mech_path = phase_b_root / "outputs" / "mechanism_importance.csv"
+    mech_path = phase_b_root / "outputs" / mech_file
     mech_agg.to_csv(mech_path, index=False, encoding="utf-8")
     print(f"Mechanism importance saved -> {mech_path}")
 
-    case_path = phase_b_root / cfg["output"]["case_shortlist"]
+    case_path = phase_b_root / cfg["output"][case_key]
     case_shortlist.to_csv(case_path, index=False, encoding="utf-8")
     print(f"Case shortlist saved -> {case_path}")
 
@@ -253,4 +335,10 @@ def run_explain(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    results = run_explain()
+    import sys as _sys
+    _dw_bare_robust = "--dw_bare_robust" in _sys.argv
+    _dw_bare = "--dw_bare" in _sys.argv and not _dw_bare_robust
+    _ndbi    = "--ndbi" in _sys.argv
+    _traj    = "--trajectory" in _sys.argv
+    results = run_explain(trajectory=_traj, ndbi=_ndbi, dw_bare=_dw_bare,
+                           dw_bare_robust=_dw_bare_robust)

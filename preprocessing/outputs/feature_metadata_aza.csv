@@ -19,10 +19,13 @@ S2_NDBI_contrast_mean,feature,float64,True,True
 S2_NDBI_contrast_std,feature,float64,False,True
 S2_NDBI_entropy_mean,feature,float64,False,True
 S2_NDBI_entropy_std,feature,float64,False,True
+dw_bare_frac_mean,feature,float64,False,True
+dw_bare_frac_std,feature,float64,False,True
 NDVI_slope,feature,float64,False,True
 NDBI_slope,feature,float64,False,True
 MNDWI_slope,feature,float64,False,True
 viirs_mean_slope,feature,float64,False,True
+dw_bare_frac_slope,feature,float64,False,True
 NDVI_seasonal_amp,feature,float64,False,True
 NDBI_seasonal_amp,feature,float64,False,True
 MNDWI_seasonal_amp,feature,float64,False,True
@@ -45,7 +48,6 @@ dw_flooded_vegetation_frac,feature,float64,False,True
 dw_crops_frac,feature,float64,False,True
 dw_shrub_and_scrub_frac,feature,float64,False,True
 dw_built_frac,feature,float64,False,True
-dw_bare_frac,feature,float64,False,True
 elderly_ratio,feature,float64,False,True
 aging_index,feature,float64,False,True
 youth_ratio,feature,float64,False,True

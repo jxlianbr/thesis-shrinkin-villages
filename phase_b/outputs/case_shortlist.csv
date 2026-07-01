@@ -1,0 +1,11 @@
+unit_id,physical_residual,top_shap_drivers
+aza:Aomori:02442005041,3.177502376110986,household_size [demographic_threshold]; dist_bus_stop_m [accessibility_transit]; years_since_merger [institutional_merger]
+aza:Akita:05202054015,2.7635883347308523,dist_medical_m [accessibility_medical]; elderly_flag_severely [demographic_threshold]; dist_bus_stop_m [accessibility_transit]
+aza:Aomori:02203084014,2.5195317522490472,household_size [demographic_threshold]; elderly_flag_severely [demographic_threshold]; dist_bus_stop_m [accessibility_transit]
+aza:Akita:05212093006,2.453630866353855,dist_medical_m [accessibility_medical]; household_size [demographic_threshold]; elderly_flag_severely [demographic_threshold]
+aza:Akita:05210136004,1.9568576220606753,dist_medical_m [accessibility_medical]; elderly_flag_severely [demographic_threshold]; dist_community_facility_m [accessibility_community]
+aza:Aomori:02203069206,1.9301208392323188,dist_medical_m [accessibility_medical]; elderly_flag_severely [demographic_threshold]; n_bus_stop_1000m [accessibility_transit]
+aza:Akita:052121220,1.9123053406227912,dist_medical_m [accessibility_medical]; elderly_flag_severely [demographic_threshold]; dist_community_facility_m [accessibility_community]
+aza:Akita:05434008005,1.8931740224628226,dist_medical_m [accessibility_medical]; elderly_flag_severely [demographic_threshold]; years_since_merger [institutional_merger]
+aza:Aomori:02203076006,1.8065026052918356,household_size [demographic_threshold]; elderly_flag_severely [demographic_threshold]; dist_bus_stop_m [accessibility_transit]
+aza:Akita:052100230,1.6663889832197858,dist_medical_m [accessibility_medical]; elderly_flag_severely [demographic_threshold]; n_bus_stop_1000m [accessibility_transit]

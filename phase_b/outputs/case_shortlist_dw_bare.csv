@@ -1,0 +1,11 @@
+unit_id,physical_residual,top_shap_drivers
+aza:Aomori:02425003005,5.930368388831582,fin_real_balance [institutional_fiscal]; fin_local_tax [institutional_fiscal]; fin_local_alloc_tax [institutional_fiscal]
+aza:Aomori:022020350,5.617354495530935,n_medical_1000m [accessibility_medical]; n_bus_stop_1000m [accessibility_transit]; hls_vacancy_rate [durability_housing]
+aza:Aomori:022020440,5.590468122871469,n_medical_1000m [accessibility_medical]; hls_vacancy_rate [durability_housing]; n_bus_stop_1000m [accessibility_transit]
+aza:Akita:05212052001,5.461875943104893,hls_vacancy_rate [durability_housing]; dist_bus_route_m [accessibility_transit]; n_medical_5000m [accessibility_medical]
+aza:Aomori:02203076020,5.3112561980701445,fin_fiscal_strength_index [institutional_fiscal]; dist_bus_route_m [accessibility_transit]; hls_vacancy_rate [durability_housing]
+aza:Aomori:02425003003,5.147419793685471,fin_real_balance [institutional_fiscal]; fin_local_tax [institutional_fiscal]; fin_local_alloc_tax [institutional_fiscal]
+aza:Aomori:022020420,5.1077107746125785,n_medical_1000m [accessibility_medical]; hls_vacancy_rate [durability_housing]; n_bus_stop_1000m [accessibility_transit]
+aza:Aomori:022020330,5.098507749899983,n_medical_1000m [accessibility_medical]; hls_vacancy_rate [durability_housing]; hls_pre1981_ratio [durability_housing]
+aza:Aomori:022020410,5.071098901707745,n_medical_1000m [accessibility_medical]; hls_vacancy_rate [durability_housing]; n_bus_stop_1000m [accessibility_transit]
+aza:Aomori:02203064006,5.044918580139582,fin_fiscal_strength_index [institutional_fiscal]; dist_did_m [accessibility_did]; hls_vacancy_other_rate [durability_housing]

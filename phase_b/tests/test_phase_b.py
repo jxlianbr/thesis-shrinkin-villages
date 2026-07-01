@@ -124,8 +124,141 @@ class TestTargetBuilder:
         cfg["feature_matrix"] = {
             "banned_columns": ["elderly_ratio", "aging_index"]
         }
-        with pytest.raises(ValueError, match="leakage"):
+        with pytest.raises(ValueError, match="demographic ratio"):
             _assert_no_leakage("elderly_ratio", cfg)
+
+
+# ===========================================================================
+# dw_bare_frac_slope_theilsen (genuine-month + Theil-Sen fix) tests
+#
+# Background: the plain-OLS dw_bare_frac_slope target failed to cross-validate
+# (CV R2=-0.59+/-0.78) because ~46% of (unit, month) cells in the monthly
+# panel are a static gee_lulc.py fallback value rather than a genuine Dynamic
+# World observation, and a plain OLS slope fit across that mixture is
+# dominated by whichever genuine points land at the high-leverage ends of
+# the time axis. See FINDINGS.md "Target Validation: Theil-Sen Fix".
+# ===========================================================================
+
+class TestDwBareTheilSenFix:
+    def test_theilsen_robust_to_single_outlier(self):
+        """
+        Theil-Sen must be far less distorted than OLS by one high-leverage
+        endpoint -- this is the core property the fix relies on.
+        """
+        import numpy as np
+        from scipy.stats import theilslopes
+
+        rng = np.random.default_rng(0)
+        n = 20
+        t = np.linspace(0, 1, n)
+        # Flat series with tiny noise, except one huge spike at the last point
+        # (mirrors the real aza:Aomori:022020350 pattern: ~130 flat months,
+        # then a single end-of-series spike).
+        y = 0.045 + rng.normal(0, 0.002, n)
+        y[-1] = 0.36  # one-off spike, same order of magnitude seen in the data
+
+        ols_slope = np.polyfit(t, y, 1)[0]
+        ts_slope, *_ = theilslopes(y, t)
+
+        # The single outlier should distort OLS far more than Theil-Sen.
+        assert abs(ols_slope) > 5 * abs(ts_slope), (
+            f"expected OLS ({ols_slope:.4f}) to be much more distorted than "
+            f"Theil-Sen ({ts_slope:.4f}) by the single endpoint outlier"
+        )
+        # Theil-Sen should stay close to the true (near-zero) underlying slope.
+        assert abs(ts_slope) < 0.01
+
+    def test_genuine_month_loader_collapses_duplicates_and_drops_nan(self, tmp_path):
+        """
+        _load_genuine_dw_bare_observations must (a) average multi-part-polygon
+        duplicate rows for the same (unit_id, month) and (b) drop cells where
+        Dynamic World returned null (the fallback-month case).
+        """
+        from target_builder import _load_genuine_dw_bare_observations
+
+        cache_dir = tmp_path / "dw_cache"
+        cache_dir.mkdir()
+        # Month 1: unit A has two polygon parts (0.10, 0.20 -> mean 0.15);
+        # unit B is null this month (fallback case, must be dropped).
+        pd.DataFrame({
+            "unit_id": ["aza:Test:A", "aza:Test:A", "aza:Test:B"],
+            "month": ["2020-01", "2020-01", "2020-01"],
+            "dw_bare_frac": [0.10, 0.20, np.nan],
+        }).to_csv(cache_dir / "dw_aza_2020-01.csv", index=False)
+        # Month 2: both genuine, single part each.
+        pd.DataFrame({
+            "unit_id": ["aza:Test:A", "aza:Test:B"],
+            "month": ["2020-02", "2020-02"],
+            "dw_bare_frac": [0.16, 0.05],
+        }).to_csv(cache_dir / "dw_aza_2020-02.csv", index=False)
+
+        cfg = {
+            "aza_id_col": "unit_id",
+            "phase_a_root": str(tmp_path),
+            "phase_a": {"dw_monthly_cache": "dw_cache"},
+        }
+        genuine = _load_genuine_dw_bare_observations(cfg)
+
+        a_jan = genuine.loc[
+            (genuine["unit_id"] == "aza:Test:A") & (genuine["month"] == "2020-01"),
+            "dw_bare_frac",
+        ].iloc[0]
+        assert a_jan == pytest.approx(0.15)
+        # Unit B's null January cell must not appear at all.
+        assert not (
+            (genuine["unit_id"] == "aza:Test:B") & (genuine["month"] == "2020-01")
+        ).any()
+        assert len(genuine) == 3  # A-Jan, A-Feb, B-Feb
+
+    def test_compute_theilsen_slope_respects_min_genuine_months(self, tmp_path):
+        """
+        A unit with fewer genuine months than target.min_genuine_months must
+        get NaN, not a slope fit on too little real data.
+        """
+        from target_builder import _compute_dw_bare_theilsen_slope
+
+        months = [f"2020-{m:02d}" for m in range(1, 13)]  # 12 calendar months
+
+        # Full monthly panel (defines the [0,1] time basis) for 2 units.
+        panel_rows = []
+        for uid in ("aza:Test:RICH", "aza:Test:POOR"):
+            for m in months:
+                panel_rows.append({"unit_id": uid, "month": m})
+        panel_path = tmp_path / "panel.parquet"
+        pd.DataFrame(panel_rows).to_parquet(panel_path, index=False)
+
+        # RICH has 10 genuine months with a clear upward trend (passes a
+        # min_genuine_months=6 threshold); POOR has only 2 (fails it).
+        cache_dir = tmp_path / "dw_cache"
+        cache_dir.mkdir()
+        for i, m in enumerate(months):
+            rows = [{"unit_id": "aza:Test:RICH", "month": m,
+                      "dw_bare_frac": 0.05 + 0.01 * i}] if i < 10 else []
+            if m in (months[0], months[1]):
+                rows.append({"unit_id": "aza:Test:POOR", "month": m,
+                             "dw_bare_frac": 0.05})
+            # gee_dw_monthly.py never writes a cache file for a month with
+            # zero images, so an empty month simply has no file at all.
+            if rows:
+                pd.DataFrame(rows).to_csv(cache_dir / f"dw_aza_{m}.csv", index=False)
+
+        cfg = {
+            "aza_id_col": "unit_id",
+            "phase_a_root": str(tmp_path),
+            "phase_a": {"eo_trajectory": "panel.parquet",
+                        "dw_monthly_cache": "dw_cache"},
+            "target": {"min_genuine_months": 6,
+                       "physical_indicator_dw_bare_robust": "dw_bare_frac_slope_theilsen"},
+        }
+        result = _compute_dw_bare_theilsen_slope(cfg)
+        result = result.set_index("unit_id")
+
+        assert result.loc["aza:Test:RICH", "n_genuine_months"] == 10
+        assert pd.notna(result.loc["aza:Test:RICH", "dw_bare_frac_slope_theilsen"])
+        assert result.loc["aza:Test:RICH", "dw_bare_frac_slope_theilsen"] > 0
+
+        assert result.loc["aza:Test:POOR", "n_genuine_months"] == 2
+        assert pd.isna(result.loc["aza:Test:POOR", "dw_bare_frac_slope_theilsen"])
 
 
 # ===========================================================================
@@ -256,3 +389,74 @@ class TestFeatureMatrix:
         assert "東成瀬村" in _KASO_ZENBU["Akita"]
         assert "弘前市" in _KASO_ICHIBU["Aomori"]
         assert "秋田市" in _KASO_ICHIBU["Akita"]
+
+
+# ===========================================================================
+# spatial_autocorrelation tests
+# ===========================================================================
+
+class TestSpatialAutocorrelation:
+    @staticmethod
+    def _square_grid(n: int) -> gpd.GeoDataFrame:
+        """n x n grid of unit squares with sequential unit_ids."""
+        geoms, ids = [], []
+        for i in range(n):
+            for j in range(n):
+                geoms.append(Polygon([(i, j), (i + 1, j),
+                                      (i + 1, j + 1), (i, j + 1)]))
+                ids.append(f"u{i:02d}{j:02d}")
+        return gpd.GeoDataFrame({"unit_id": ids}, geometry=geoms, crs="EPSG:6680")
+
+    def test_moran_detects_spatial_gradient(self):
+        """A smooth spatial gradient must yield strongly positive Moran's I."""
+        from spatial_autocorrelation import _morans_i
+        n = 8
+        gdf = self._square_grid(n)
+        # Value = x + y coordinate: maximally smooth gradient.
+        values = np.array([i + j for i in range(n) for j in range(n)],
+                          dtype=float)
+        res = _morans_i(values, gdf, permutations=199, seed=42)
+        assert res["morans_i"] > 0.5
+        assert res["p_sim"] < 0.05
+        assert res["significant_005"] is True
+        assert res["n_islands"] == 0
+
+    def test_moran_null_on_random_noise(self):
+        """Spatially random values must yield Moran's I near E[I] and p >= 0.05."""
+        from spatial_autocorrelation import _morans_i
+        rng = np.random.RandomState(42)
+        gdf = self._square_grid(8)
+        values = rng.normal(size=len(gdf))
+        res = _morans_i(values, gdf, permutations=199, seed=42)
+        assert abs(res["morans_i"]) < 0.15
+        assert res["p_sim"] >= 0.05
+
+    def test_dissolve_multipart_unions_geometry(self):
+        """Duplicate unit_id rows must be dissolved, not dropped."""
+        from spatial_autocorrelation import _dissolve_multipart
+        # Two disjoint parts of unit "a" flanking unit "b": if the second
+        # part of "a" were dropped instead of dissolved, "a" would lose
+        # its contiguity with "b" on the right side.
+        gdf = gpd.GeoDataFrame(
+            {"unit_id": ["a", "b", "a"]},
+            geometry=[
+                Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),
+                Polygon([(1, 0), (2, 0), (2, 1), (1, 1)]),
+                Polygon([(2, 0), (3, 0), (3, 1), (2, 1)]),
+            ],
+            crs="EPSG:6680",
+        )
+        out = _dissolve_multipart(gdf)
+        assert len(out) == 2
+        assert out["unit_id"].is_unique
+        area_a = out.loc[out["unit_id"] == "a"].geometry.area.iloc[0]
+        assert area_a == pytest.approx(2.0)
+
+    def test_align_to_units_order_and_mask(self):
+        """Alignment must preserve requested order and flag missing units."""
+        from spatial_autocorrelation import _align_to_units
+        gdf = self._square_grid(2)  # u0000, u0001, u0100, u0101
+        want = np.array(["u0101", "u0000", "missing"])
+        aligned, mask = _align_to_units(gdf, want)
+        assert mask.tolist() == [True, True, False]
+        assert aligned["unit_id"].tolist() == ["u0101", "u0000"]

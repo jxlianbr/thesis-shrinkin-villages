@@ -27,6 +27,9 @@ python phase_b/cv_train.py
 
 # 5. SHAP attributions + mechanism-cluster mapping + case shortlist
 python phase_b/explain.py
+
+# 6. Spatial autocorrelation diagnostics (Moran's I on target + OOF residuals)
+python phase_b/spatial_autocorrelation.py
 ```
 
 Each step persists its output under `phase_b/outputs/` before the next
@@ -38,11 +41,12 @@ step reads it.  Run from the repo root (`D:/data_code_masterthesis/code/`).
 
 | Module | What it does |
 |--------|-------------|
-| `target_builder.py` | Regresses GLCM-contrast on elderly_ratio + pop_total via OLS (VIF-pruned); per-aza residual is the Phase B target |
-| `accessibility_features.py` | Euclidean nearest-distance (m) from aza representative points to DID, medical, hospital-only, school, elementary, bus stop, bus route; buffer counts; P05 stub |
+| `target_builder.py` | Builds the Phase B target as an OLS residual of a physical indicator on elderly_ratio + pop_total (VIF-pruned). Four indicator variants, selected by CLI flag: plain (level, `S2_NDBI_contrast_mean`), `--trajectory`/`--ndbi` (retired, spatial artifacts), `--dw_bare` (superseded plain-OLS slope), **`--dw_bare_robust` (active: Theil-Sen slope on genuine-month-only Dynamic World observations — see FINDINGS.md "Target Validation: Theil-Sen Fix")** |
+| `accessibility_features.py` | Euclidean nearest-distance (m) from aza representative points to DID, medical, hospital-only, school, elementary, bus stop, bus route, community facility (P05); buffer counts |
 | `feature_matrix.py` | Joins all predictor families on `unit_id`; enforces leakage guards before every merge; hard-coded kaso flags; HLS durability broadcast muni→aza |
-| `cv_train.py` | Municipality-blocked StratifiedGroupKFold CV; imports Phase A `cross_validation.py`; trains final XGBoost |
-| `explain.py` | SHAP TreeExplainer; aggregates by Section 2.2 mechanism cluster; exports case shortlist of structurally-deteriorating units |
+| `cv_train.py` | Municipality-blocked StratifiedGroupKFold CV; imports Phase A `cross_validation.py`; trains final XGBoost; same `--dw_bare_robust` etc. flags as `target_builder.py` |
+| `explain.py` | SHAP TreeExplainer; aggregates by Section 2.2 mechanism cluster; exports case shortlist of structurally-deteriorating units; same target-variant flags |
+| `spatial_autocorrelation.py` | Moran's I (Queen contiguity, permutation p) on the residual target and on the grouped-CV out-of-fold residuals; mirrors the Phase A diagnostic in `typology/src/step3_relationships.py`; same target-variant flags |
 
 ---
 
@@ -66,9 +70,10 @@ All paths, column names, and hyperparameters live in
 
 | Item | Status | Action needed |
 |------|--------|---------------|
-| P05 community facilities | **STUB** — all NaN | Drop P05 shapefiles into `nlni_data_japan/` and set paths in config |
+| P05 community facilities | **RESOLVED** — real shapefiles loaded (`P05-10_02_GML`/`P05-10_05_GML`); `accessibility_community` is a live, non-trivial SHAP mechanism | none |
 | Finance pre-2015 | PDFs only; regex extractor implemented | Verify extraction quality on `1018-15-9_02.pdf`; may need manual QA |
 | Kaso 一部過疎 roaza assignment | Municipality-level only | Requires 旧町村 boundary layer to assign individual aza |
+| dw_bare_frac_slope trajectory target | **RESOLVED 2026-06-30** — see FINDINGS.md "Target Validation: Theil-Sen Fix"; `--dw_bare_robust` is now the active target | none (null result confirmed stable) |
 
 ---
 

@@ -1,0 +1,11 @@
+unit_id,physical_residual,top_shap_drivers
+aza:Akita:052030420,1.30676431585153,hls_vacancy_rate [durability_housing]; hls_pre1981_ratio [durability_housing]; fin_real_balance [institutional_fiscal]
+aza:Akita:052030520,1.2595258322435177,hls_vacancy_rate [durability_housing]; hls_pre1981_ratio [durability_housing]; fin_real_balance [institutional_fiscal]
+aza:Akita:052030490,1.237609013080634,hls_vacancy_rate [durability_housing]; hls_pre1981_ratio [durability_housing]; fin_real_balance [institutional_fiscal]
+aza:Akita:05464003003,1.2072187592459707,fin_fiscal_strength_index [institutional_fiscal]; fin_local_tax [institutional_fiscal]; fin_real_balance [institutional_fiscal]
+aza:Akita:052030870,1.2051035517460138,hls_vacancy_rate [durability_housing]; hls_pre1981_ratio [durability_housing]; fin_real_balance [institutional_fiscal]
+aza:Akita:052030540,1.1975364272186475,hls_vacancy_rate [durability_housing]; hls_pre1981_ratio [durability_housing]; fin_real_balance [institutional_fiscal]
+aza:Akita:052030690,1.1963842615048352,hls_vacancy_rate [durability_housing]; hls_pre1981_ratio [durability_housing]; fin_real_balance [institutional_fiscal]
+aza:Akita:052030700,1.1942494736692635,hls_vacancy_rate [durability_housing]; hls_pre1981_ratio [durability_housing]; fin_real_balance [institutional_fiscal]
+aza:Akita:052030840,1.1898632339573105,hls_vacancy_rate [durability_housing]; hls_pre1981_ratio [durability_housing]; fin_real_balance [institutional_fiscal]
+aza:Akita:05203044001,1.1884439552630148,hls_vacancy_rate [durability_housing]; hls_pre1981_ratio [durability_housing]; fin_real_balance [institutional_fiscal]

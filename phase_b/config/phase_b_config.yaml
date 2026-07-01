@@ -16,6 +16,11 @@ phase_a:
   eo_trajectory:       "outputs/final/features_table_aza.parquet"
   classification_ready: "preprocessing/outputs/classification_ready_aza.csv"
   aza_polygons:        "admin_demographics/boundaries/aza.gpkg"
+  # Per-calendar-month cache written by data_preprocessing/gee_dw_monthly.py.
+  # A (unit_id, month) pair is a GENUINE Dynamic World observation if it is
+  # present here with a non-null value; absent/NaN means pipeline.py step 4e
+  # left the static gee_lulc.py fallback value in the monthly panel instead.
+  dw_monthly_cache:    "outputs/gee/dw_monthly"
 
 # --- NLNI accessibility layers (paths relative to data_root) ---------------
 nlni:
@@ -105,17 +110,35 @@ merger:
 
 # --- Target building -------------------------------------------------------
 target:
-  physical_indicator: "S2_NDBI_contrast_mean"  # configurable; must exist in classification_ready
+  physical_indicator: "S2_NDBI_contrast_mean"        # level target (kept for reference)
+  physical_indicator_trajectory: "S2_NDBI_contrast_slope"  # RETIRED: GLCM slope (area artifact)
+  physical_indicator_ndbi: "NDBI_slope"              # RETIRED: spatial gradient artifact (ICC=0.889, Moran's I=0.992)
+  physical_indicator_dw_bare: "dw_bare_frac_slope"  # SUPERSEDED 2026-06-30: plain-OLS slope on a panel that is
+                                                     # ~46% static-fallback months (see dw_monthly coverage gap
+                                                     # below); a handful of end-of-series spike months produce
+                                                     # extreme high-leverage slopes that RobustScaler then amplifies.
+                                                     # CV R2=-0.59+/-0.78. Kept only for before/after comparison.
+                                                     # See phase_b/FINDINGS.md "Target Validation: Theil-Sen Fix".
+  physical_indicator_dw_bare_robust: "dw_bare_frac_slope_theilsen"  # ACTIVE: Theil-Sen slope computed only from
+                                                     # genuine (non-fallback) monthly Dynamic World observations.
+                                                     # See target_builder.py:_compute_dw_bare_theilsen_slope.
+  min_genuine_months: 24  # minimum genuine (non-fallback) DW monthly obs required to fit the robust slope;
+                           # every aza has >=49 genuine months in practice (see FINDINGS.md), so this is a
+                           # safety floor, not an active filter.
   demographic_regressors:
-    - "elderly_ratio"    # ratio of 65+ to total pop
-    - "pop_total"        # scale control
+    - "elderly_ratio"    # ratio of 65+ to total pop (2015 vintage)
+    - "pop_total"        # scale control (2015 vintage)
   vif_threshold: 10.0    # drop regressors with VIF > this (reuses Phase A logic)
   output_col: "physical_residual"
 
 # --- Feature matrix guards -------------------------------------------------
 feature_matrix:
-  # These columns must NEVER appear in the final feature matrix (leakage / target)
+  # These columns must NEVER appear in the final feature matrix.
+  # Rule: Phase B predicts the decoupling target from socio-economic /
+  # institutional / accessibility features — NEVER from remote sensing.
+  # EO outcome window is 2015-2025; all predictors must pre-date 2015.
   banned_columns:
+    # --- Target-leakage: continuous aging ratios (used to build the target) ---
     - "elderly_ratio"
     - "aging_index"
     - "youth_ratio"
@@ -124,6 +147,60 @@ feature_matrix:
     - "age_65_plus"
     - "age_u15"
     - "pop_total"
+    # --- EO/RS: Sentinel-2 raw bands -----------------------------------------
+    - "B4_mean"
+    - "B4_std"
+    - "B8_mean"
+    - "B8_std"
+    - "B11_mean"
+    - "B11_std"
+    # --- EO/RS: spectral index trajectories ----------------------------------
+    - "NDVI_mean"
+    - "NDVI_std"
+    - "NDVI_slope"
+    - "NDVI_seasonal_amp"
+    - "NDBI_mean"
+    - "NDBI_std"
+    - "NDBI_slope"
+    - "NDBI_seasonal_amp"
+    - "MNDWI_mean"
+    - "MNDWI_std"
+    - "MNDWI_slope"
+    - "MNDWI_seasonal_amp"
+    # --- EO/RS: GLCM texture (IS the target component — most circular) -------
+    - "S2_NDBI_contrast_mean"
+    - "S2_NDBI_contrast_std"
+    - "S2_NDBI_entropy_mean"
+    - "S2_NDBI_entropy_std"
+    # --- EO/RS: Dynamic World LULC fractions ---------------------------------
+    # dw_bare_frac is now monthly time-varying; preprocessing produces three
+    # derived columns below.  dw_bare_frac_slope is excluded as a predictor
+    # (it is a Phase B target candidate, not an input feature).
+    - "dw_bare_frac_mean"
+    - "dw_bare_frac_std"
+    - "dw_bare_frac_slope"
+    - "dw_built_frac"
+    - "dw_crops_frac"
+    - "dw_flooded_vegetation_frac"
+    - "dw_grass_frac"
+    - "dw_shrub_and_scrub_frac"
+    - "dw_trees_frac"
+    - "dw_water_frac"
+    # --- EO/RS: VIIRS nighttime lights ---------------------------------------
+    - "viirs_mean_mean"
+    - "viirs_mean_slope"
+    - "viirs_mean_std"
+    # --- EO/RS: OSM built stock (no temporal constraint, Phase A pipeline) ---
+    - "osm_built_area"
+    - "osm_built_ratio"
+    # --- EO terrain: satellite DEM derivatives (Copernicus/SRTM) ------------
+    - "aspect_cos_mean"
+    - "aspect_sin_mean"
+    - "elevation_mean"
+    - "elevation_std"
+    - "slope_mean"
+    - "slope_std"
+    - "tri_mean"
 
 # --- Cross-validation -------------------------------------------------------
 cross_validation:
@@ -157,44 +234,80 @@ explain:
   n_background: 50          # kmeans background sample for TreeExplainer
   case_shortlist_n: 10      # top-N positive residuals for case table
   mechanism_taxonomy:       # feature prefix → mechanism cluster label
-    NDBI:        "built_environment_trajectory"
-    NDVI:        "vegetation_trajectory"
-    MNDWI:       "water_trajectory"
-    viirs:       "nightlight_activity"
-    S2_NDBI:     "texture_built_condition"
-    dw_built:    "built_fraction_lulc"
-    dw_trees:    "vegetation_fraction_lulc"
-    dw_bare:     "bare_land_lulc"
-    elevation:   "terrain"
-    slope:       "terrain"
-    osm_built:   "osm_built_stock"
+    # Sanctioned predictor families only (no EO/RS prefixes)
+    fin_:        "institutional_fiscal"
+    kaso:        "institutional_policy"
+    merged:      "institutional_merger"
+    years_since: "institutional_merger"
+    hls_:        "durability_housing"
     dist_did:    "accessibility_did"
     dist_med:    "accessibility_medical"
     dist_hosp:   "accessibility_hospital"
     dist_school: "accessibility_education"
     dist_elem:   "accessibility_education"
     dist_bus:    "accessibility_transit"
+    dist_com:    "accessibility_community"
+    in_did:      "accessibility_did"
     n_med:       "accessibility_medical"
     n_school:    "accessibility_education"
     n_bus:       "accessibility_transit"
-    fiscal:      "municipal_fiscal"
-    hls_pre1981: "housing_durability"
-    kaso:        "policy_depopulation"
-    merged:      "administrative_merger"
+    n_community: "accessibility_community"
     elderly_flag: "demographic_threshold"
     household:   "demographic_threshold"
 
 # --- Spatial projection for distance computation --------------------------
 crs_project: "EPSG:6680"    # JGD2011 Japan Zone 10 (meters)
 
+# --- Spatial autocorrelation diagnostics (spatial_autocorrelation.py) ------
+# Moran's I on (a) the residual target itself and (b) the CV out-of-fold
+# residuals, per FINDINGS.md improvement #5. Mirrors the Phase A diagnostic
+# in typology/src/step3_relationships.py (Queen contiguity, permutation p).
+spatial:
+  weights: "queen"          # Queen contiguity on dissolved aza polygons
+  permutations: 999         # permutation count for pseudo p-value
+  seed: 42                  # numpy seed for the permutation draw
+
 # --- Output paths (relative to phase_b_root) ------------------------------
 output:
-  residuals:       "outputs/target_residuals.parquet"
-  accessibility:   "outputs/accessibility_features.parquet"
-  feature_matrix:  "outputs/feature_matrix.parquet"
-  cv_results:      "outputs/cv_results.json"
-  shap_values:     "outputs/shap_values.parquet"
-  case_shortlist:  "outputs/case_shortlist.csv"
-  manifest:        "manifest.md"
+  # Level target (original)
+  residuals:                    "outputs/target_residuals.parquet"
+  cv_results:                   "outputs/cv_results.json"
+  shap_values:                  "outputs/shap_values.parquet"
+  case_shortlist:               "outputs/case_shortlist.csv"
+  # Trajectory target — GLCM slope (RETIRED: area artifact, r=0.00 vs NDBI_slope)
+  residuals_trajectory:         "outputs/target_trajectory.parquet"
+  cv_results_trajectory:        "outputs/cv_results_trajectory.json"
+  shap_values_trajectory:       "outputs/shap_values_trajectory.parquet"
+  case_shortlist_trajectory:    "outputs/case_shortlist_trajectory.csv"
+  # NDBI trajectory target (RETIRED: spatial gradient artifact)
+  residuals_ndbi:               "outputs/target_ndbi_trajectory.parquet"
+  cv_results_ndbi:              "outputs/cv_results_ndbi.json"
+  shap_values_ndbi:             "outputs/shap_values_ndbi.parquet"
+  case_shortlist_ndbi:          "outputs/case_shortlist_ndbi.csv"
+  # DW bare-fraction slope target (SUPERSEDED 2026-06-30 - plain OLS, kept for comparison)
+  residuals_dw_bare:            "outputs/target_dw_bare_trajectory.parquet"
+  cv_results_dw_bare:           "outputs/cv_results_dw_bare.json"
+  shap_values_dw_bare:          "outputs/shap_values_dw_bare.parquet"
+  case_shortlist_dw_bare:       "outputs/case_shortlist_dw_bare.csv"
+  # DW bare-fraction Theil-Sen slope target (ACTIVE - genuine-month-filtered, robust)
+  residuals_dw_bare_robust:     "outputs/target_dw_bare_robust_trajectory.parquet"
+  cv_results_dw_bare_robust:    "outputs/cv_results_dw_bare_robust.json"
+  shap_values_dw_bare_robust:   "outputs/shap_values_dw_bare_robust.parquet"
+  case_shortlist_dw_bare_robust: "outputs/case_shortlist_dw_bare_robust.csv"
+  # Spatial autocorrelation diagnostics (one JSON + per-unit parquet per variant)
+  spatial_autocorrelation:                    "outputs/spatial_autocorrelation.json"
+  spatial_residuals:                          "outputs/spatial_residuals.parquet"
+  spatial_autocorrelation_trajectory:         "outputs/spatial_autocorrelation_trajectory.json"
+  spatial_residuals_trajectory:               "outputs/spatial_residuals_trajectory.parquet"
+  spatial_autocorrelation_ndbi:               "outputs/spatial_autocorrelation_ndbi.json"
+  spatial_residuals_ndbi:                     "outputs/spatial_residuals_ndbi.parquet"
+  spatial_autocorrelation_dw_bare:            "outputs/spatial_autocorrelation_dw_bare.json"
+  spatial_residuals_dw_bare:                  "outputs/spatial_residuals_dw_bare.parquet"
+  spatial_autocorrelation_dw_bare_robust:     "outputs/spatial_autocorrelation_dw_bare_robust.json"
+  spatial_residuals_dw_bare_robust:           "outputs/spatial_residuals_dw_bare_robust.parquet"
+  # Shared
+  accessibility:                "outputs/accessibility_features.parquet"
+  feature_matrix:               "outputs/feature_matrix.parquet"
+  manifest:                     "manifest.md"
 
 random_state: 42

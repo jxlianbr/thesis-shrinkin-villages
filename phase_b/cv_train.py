@@ -141,6 +141,12 @@ def _run_grouped_cv(
 
         fold_metrics = []
         all_y_true, all_y_pred = [], []
+        # Per-row out-of-fold prediction accumulators. Each row is tested
+        # exactly once per repeat, so oof_count ends at n_repeats and the
+        # mean is the repeat-averaged OOF prediction (positionally aligned
+        # with X/y, hence with unit_ids returned by train()).
+        oof_sum = np.zeros(len(y_arr), dtype=float)
+        oof_count = np.zeros(len(y_arr), dtype=float)
 
         for r in range(n_repeats):
             sgkf = StratifiedGroupKFold(
@@ -155,6 +161,8 @@ def _run_grouped_cv(
                 )
                 all_y_true.append(y_arr[test_idx])
                 all_y_pred.append(y_pred)
+                oof_sum[test_idx] += y_pred
+                oof_count[test_idx] += 1
 
         fold_df = pd.DataFrame(fold_metrics)
         mean_m = fold_df.mean().to_dict()
@@ -162,12 +170,18 @@ def _run_grouped_cv(
         print(f"R2={mean_m['r2']:.3f} +/- {std_m['r2']:.3f}, "
               f"RMSE={mean_m['rmse']:.4f}")
 
+        oof_pred = np.divide(
+            oof_sum, oof_count,
+            out=np.full(len(y_arr), np.nan), where=oof_count > 0,
+        )
+
         all_results[model_name] = {
             "fold_metrics": fold_df,
             "mean_metrics": mean_m,
             "std_metrics": std_m,
             "all_y_true": np.concatenate(all_y_true),
             "all_y_pred": np.concatenate(all_y_pred),
+            "oof_pred": oof_pred,
         }
 
     return all_results
@@ -177,9 +191,29 @@ def _run_grouped_cv(
 # Main training function
 # ---------------------------------------------------------------------------
 
-def train(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
+def train(
+    cfg: Dict[str, Any] | None = None,
+    trajectory: bool = False,
+    ndbi: bool = False,
+    dw_bare: bool = False,
+    dw_bare_robust: bool = False,
+) -> Dict[str, Any]:
     """
     Load feature matrix + residual target, run grouped CV, save results.
+
+    Parameters
+    ----------
+    trajectory : bool
+        If True, use the GLCM contrast-slope target (RETIRED — kept for reference).
+    ndbi : bool
+        If True, use the NDBI_slope target (RETIRED — spatial gradient artifact).
+    dw_bare : bool
+        If True, use the plain-OLS dw_bare_frac_slope target (SUPERSEDED 2026-06-30
+        — kept only for before/after comparison against dw_bare_robust).
+    dw_bare_robust : bool
+        If True, use the Theil-Sen, genuine-month-filtered dw_bare_frac slope
+        target (ACTIVE). See target_builder.py:_compute_dw_bare_theilsen_slope
+        and FINDINGS.md "Target Validation: Theil-Sen Fix" for the rationale.
 
     Returns
     -------
@@ -191,6 +225,33 @@ def train(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
     phase_b_root = Path(cfg["phase_b_root"])
     aza_id_col = cfg["aza_id_col"]
 
+    # Select target-variant paths
+    if dw_bare_robust:
+        res_key    = "residuals_dw_bare_robust"
+        cv_key     = "cv_results_dw_bare_robust"
+        model_name = "final_model_xgboost_dw_bare_robust.joblib"
+        tag        = " [DW_BARE_ROBUST]"
+    elif dw_bare:
+        res_key    = "residuals_dw_bare"
+        cv_key     = "cv_results_dw_bare"
+        model_name = "final_model_xgboost_dw_bare.joblib"
+        tag        = " [DW_BARE]"
+    elif ndbi:
+        res_key    = "residuals_ndbi"
+        cv_key     = "cv_results_ndbi"
+        model_name = "final_model_xgboost_ndbi.joblib"
+        tag        = " [NDBI]"
+    elif trajectory:
+        res_key    = "residuals_trajectory"
+        cv_key     = "cv_results_trajectory"
+        model_name = "final_model_xgboost_trajectory.joblib"
+        tag        = " [TRAJECTORY]"
+    else:
+        res_key    = "residuals"
+        cv_key     = "cv_results"
+        model_name = "final_model_xgboost.joblib"
+        tag        = ""
+
     # Load feature matrix
     fm_path = phase_b_root / cfg["output"]["feature_matrix"]
     if not fm_path.exists():
@@ -198,11 +259,11 @@ def train(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
             f"Feature matrix not found: {fm_path}. "
             "Run feature_matrix.py first."
         )
-    print(f"Loading feature matrix: {fm_path}")
+    print(f"Loading feature matrix{tag}: {fm_path}")
     fm = pd.read_parquet(fm_path)
 
     # Load residual target
-    res_path = phase_b_root / cfg["output"]["residuals"]
+    res_path = phase_b_root / cfg["output"][res_key]
     if not res_path.exists():
         raise FileNotFoundError(
             f"Residual target not found: {res_path}. "
@@ -227,11 +288,32 @@ def train(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
     n_groups = len(set(groups))
     print(f"  Grouping: {n_groups} municipalities as spatial blocks.")
 
-    # Feature columns: exclude identifiers, target, and helper columns
-    meta_cols = {aza_id_col, "pref_name", "muni_code", target_col,
-                 cfg["target"]["physical_indicator"],
-                 cfg["target"]["physical_indicator"] + "_fitted",
-                 "city_name_ja", "unit_code"}
+    # Feature columns: exclude identifiers, target, and physical-indicator
+    # columns (both level and trajectory variants, whichever are present).
+    meta_cols: set[str] = {
+        aza_id_col, "pref_name", "muni_code", target_col,
+        "city_name_ja", "unit_code",
+        cfg["target"]["physical_indicator"],
+        cfg["target"]["physical_indicator"] + "_fitted",
+    }
+    if trajectory:
+        pi_traj = cfg["target"]["physical_indicator_trajectory"]
+        meta_cols.add(pi_traj)
+        meta_cols.add(pi_traj + "_fitted")
+    if ndbi:
+        pi_ndbi = cfg["target"]["physical_indicator_ndbi"]
+        meta_cols.add(pi_ndbi)
+        meta_cols.add(pi_ndbi + "_fitted")
+    if dw_bare:
+        pi_dw = cfg["target"]["physical_indicator_dw_bare"]
+        meta_cols.add(pi_dw)
+        meta_cols.add(pi_dw + "_fitted")
+    if dw_bare_robust:
+        pi_dwr = cfg["target"]["physical_indicator_dw_bare_robust"]
+        meta_cols.add(pi_dwr)
+        meta_cols.add(pi_dwr + "_fitted")
+        meta_cols.add("n_genuine_months")
+
     feature_cols = [
         c for c in data.columns
         if c not in meta_cols
@@ -245,11 +327,15 @@ def train(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
     X = data[feature_cols].astype(float)
     y = data[target_col].astype(float)
 
-    # Drop rows where y is NaN
-    valid = y.notna() & X.notna().all(axis=1)
-    n_dropped = int((~valid).sum())
-    if n_dropped:
-        print(f"  Dropped {n_dropped} rows with NaN in X or y.")
+    # Drop only rows where y is NaN; XGBoost learns optimal split direction
+    # for NaN in X natively — do not impute or drop those rows.
+    valid = y.notna()
+    n_dropped_y = int((~valid).sum())
+    n_nan_x = int(X.loc[valid].isna().any(axis=1).sum())
+    if n_dropped_y:
+        print(f"  Dropped {n_dropped_y} rows with NaN in y.")
+    if n_nan_x:
+        print(f"  {n_nan_x} rows have NaN in X (kept; XGBoost handles natively).")
     X, y, groups = X.loc[valid], y.loc[valid], groups[valid]
 
     assert len(X) >= 10, (
@@ -259,7 +345,7 @@ def train(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
     # Build XGBoost
     models = _build_xgboost_model(cfg)
 
-    print(f"\nRunning municipality-grouped CV "
+    print(f"\nRunning municipality-grouped CV{tag} "
           f"({cfg['cross_validation']['n_splits']}-fold x "
           f"{cfg['cross_validation']['n_repeats']} repeats) ...")
     cv_results = _run_grouped_cv(X, y, groups, models, cfg)
@@ -283,11 +369,11 @@ def train(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
     print("  Final model trained.")
 
     # Persist CV results (metrics only — model saved via joblib)
-    out_cv = phase_b_root / cfg["output"]["cv_results"]
+    out_cv = phase_b_root / cfg["output"][cv_key]
     out_cv.parent.mkdir(parents=True, exist_ok=True)
     cv_summary = {}
-    for model_name, res in cv_results.items():
-        cv_summary[model_name] = {
+    for mn, res in cv_results.items():
+        cv_summary[mn] = {
             "mean_metrics": res["mean_metrics"],
             "std_metrics": res["std_metrics"],
             "n_folds": len(res["fold_metrics"]),
@@ -298,7 +384,7 @@ def train(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
 
     # Save final model
     import joblib
-    model_path = phase_b_root / "outputs" / "final_model_xgboost.joblib"
+    model_path = phase_b_root / "outputs" / model_name
     joblib.dump(final_model, model_path)
     print(f"Final model saved -> {model_path}")
 
@@ -308,6 +394,7 @@ def train(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
         "groups": groups,
         "X": X,
         "y": y,
+        "unit_ids": data.loc[valid, aza_id_col].to_numpy(),
         "final_model": final_model,
     }
 
@@ -316,17 +403,30 @@ def train(cfg: Dict[str, Any] | None = None) -> Dict[str, Any]:
 # Entry point
 # ---------------------------------------------------------------------------
 
-def run_cv_train(cfg_path: Path | None = None) -> Dict[str, Any]:
+def run_cv_train(
+    cfg_path: Path | None = None,
+    trajectory: bool = False,
+    ndbi: bool = False,
+    dw_bare: bool = False,
+    dw_bare_robust: bool = False,
+) -> Dict[str, Any]:
     if cfg_path is not None:
         with open(cfg_path, encoding="utf-8") as f:
             cfg = yaml.safe_load(f)
     else:
         cfg = _load_cfg()
-    return train(cfg)
+    return train(cfg, trajectory=trajectory, ndbi=ndbi, dw_bare=dw_bare,
+                 dw_bare_robust=dw_bare_robust)
 
 
 if __name__ == "__main__":
-    results = run_cv_train()
+    import sys as _sys
+    _dw_bare_robust = "--dw_bare_robust" in _sys.argv
+    _dw_bare = "--dw_bare" in _sys.argv and not _dw_bare_robust
+    _ndbi    = "--ndbi" in _sys.argv
+    _traj    = "--trajectory" in _sys.argv
+    results = run_cv_train(trajectory=_traj, ndbi=_ndbi, dw_bare=_dw_bare,
+                            dw_bare_robust=_dw_bare_robust)
     print("\nCV Summary:")
     for model, res in results["cv_results"].items():
         mm = res["mean_metrics"]

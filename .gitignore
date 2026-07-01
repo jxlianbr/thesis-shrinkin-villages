@@ -39,3 +39,6 @@ data_intermediate/
 admin_demographics/boundaries_raw/
 admin_demographics/demographics_raw/
 admin_demographics/boundaries_export/
+
+# Run logs (regenerable transcripts)
+run_aza.log

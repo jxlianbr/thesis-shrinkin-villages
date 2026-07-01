@@ -212,6 +212,41 @@ def main(config_path: str = "config/config.yaml") -> None:
             "features": lulc_cols,
         })
 
+    # 4e) Monthly Dynamic World bare fraction (time-varying; overwrites static dw_bare_frac)
+    compute_lulc_monthly = bool(cfg.get("features", {}).get("compute_lulc_monthly", False))
+    if compute_lulc_monthly and features_df is not None:
+        print("Extracting monthly Dynamic World bare fraction...")
+        from data_preprocessing.gee_dw_monthly import run_dw_monthly_extraction
+
+        dw_panel = run_dw_monthly_extraction(cfg)
+
+        if not dw_panel.empty:
+            unit_id_field_lm = cfg["data"]["unit_id_field"]
+            # Merge monthly bare values on (unit_id, month), then overwrite the
+            # static dw_bare_frac that gee_lulc.py broadcast to every monthly row.
+            features_df = features_df.merge(
+                dw_panel.rename(columns={"dw_bare_frac": "_dw_bare_m"}),
+                on=[unit_id_field_lm, "month"],
+                how="left",
+            )
+            mask = features_df["_dw_bare_m"].notna()
+            if "dw_bare_frac" in features_df.columns:
+                features_df.loc[mask, "dw_bare_frac"] = features_df.loc[mask, "_dw_bare_m"]
+            else:
+                features_df["dw_bare_frac"] = features_df["_dw_bare_m"]
+            features_df = features_df.drop(columns=["_dw_bare_m"])
+
+            n_valid = int(features_df["dw_bare_frac"].notna().sum())
+            print(f"  [dw_monthly] dw_bare_frac updated: "
+                  f"{n_valid:,}/{len(features_df):,} rows non-null")
+            manifest["steps"].append({
+                "step": "dw_monthly_bare_fraction",
+                "status": "ok",
+                "ts_utc": _utc_now(),
+                "source": "GOOGLE/DYNAMICWORLD/V1 (monthly)",
+                "feature": "dw_bare_frac",
+            })
+
     # 5) Aggregation to village/sub-municipal units
     # In this backbone, aggregation is done in GEE via reduceRegions; table is already at unit level.
     manifest["steps"].append({"step": "aggregation_to_units", "status": "ok", "ts_utc": _utc_now()})

@@ -217,13 +217,19 @@ def _jp_year_to_western(era: str, year: int) -> int:
 
 def _normalize_jp_text(text: str) -> str:
     """Remove spaces between Japanese characters for reliable pattern matching."""
-    # Convert full-width digits/spaces to ASCII
     text = text.translate(str.maketrans(
         "０１２３４５６７８９　，",
         "0123456789 ,",
     ))
-    # Remove spaces between sequences of non-whitespace characters (Japanese label)
     return re.sub(r"(?<=\S) (?=\S)", "", text)
+
+
+def _normalize_digits(text: str) -> str:
+    """Convert full-width digits/comma/space to ASCII; preserve all spacing."""
+    return text.translate(str.maketrans(
+        "０１２３４５６７８９　，",
+        "0123456789 ,",
+    ))
 
 
 def _extract_value(text: str, label: str) -> float | None:
@@ -282,12 +288,13 @@ def _parse_kessancard_pdf(
             raw_text = page_obj.extract_text() or ""
             if not raw_text.strip():
                 continue
-            norm_text = _normalize_jp_text(raw_text)
+            # Digit-only normalisation preserves spacing between label and value;
+            # full normalisation strips those spaces and breaks \s+ in _extract_value.
+            digit_text = _normalize_digits(raw_text)
 
             # Identify municipality from ToC
             muni_name = toc.get(page_num)
             if muni_name is None:
-                # Try to find name directly in text (fallback)
                 muni_name = _guess_muni_name(raw_text)
 
             row: dict = {
@@ -296,8 +303,19 @@ def _parse_kessancard_pdf(
                 "fiscal_year": fy,
             }
             for out_col, jp_label in metrics_map.items():
-                val = _extract_value(norm_text, jp_label)
+                val = _extract_value(digit_text, jp_label)
                 row[f"fin_{out_col}"] = val
+
+            # Fallback for 地方交付税: some PDF vintages (e.g. FY2014) have the
+            # 地方交付税 row garbled by pdfplumber column-merging.  Sum the
+            # sub-components from the adjacent clean rows instead.
+            if row.get("fin_local_alloc_tax") is None:
+                futsu = _extract_value(digit_text, "普通交付税")
+                tokubetsu = _extract_value(digit_text, "特別交付税")
+                shinsai = _extract_value(digit_text, "震災復興特別交付税")
+                parts = [v for v in (futsu, tokubetsu, shinsai) if v is not None]
+                if parts:
+                    row["fin_local_alloc_tax"] = sum(parts)
 
             # Compute fiscal strength index from revenue/need (if both extracted)
             rev = row.get("fin_std_fiscal_revenue")
@@ -313,16 +331,21 @@ def _parse_kessancard_pdf(
 
 
 def _parse_toc(page0_text: str) -> dict[int, str]:
-    """Extract {page_number: municipality_name} from the ToC page."""
+    """Extract {page_number: municipality_name} from the ToC page.
+
+    ToC lines often have two entries per line (e.g. '青森市 2  大間町 32').
+    re.findall captures both entries correctly.
+    Character class covers CJK, hiragana, and katakana (needed for names like
+    おいらせ町, つがる市, むつ市).
+    """
     toc: dict[int, str] = {}
-    lines = page0_text.splitlines()
-    for line in lines:
-        # Pattern: "市区町村名  N" where N is a page number
-        m = re.match(r"^(.{2,10}[市町村区])\s+(\d+)\s*$", line.strip())
-        if m:
-            name = m.group(1).strip()
-            page = int(m.group(2))
-            toc[page] = name
+    # ぀-ゟ hiragana, ゠-ヿ katakana, 一-鿿 CJK
+    pattern = re.compile(
+        r"([぀-ゟ゠-ヿ一-鿿]{1,9}[市町村区])\s+(\d+)"
+    )
+    for line in page0_text.splitlines():
+        for name, page in pattern.findall(line.strip()):
+            toc[int(page)] = name
     return toc
 
 
@@ -440,6 +463,78 @@ def _parse_num(s: str) -> float:
     if s in ("-", "", "nan", "None"):
         return 0.0
     return float(s)
+
+
+# ---------------------------------------------------------------------------
+# 4b. HLS vacancy (a002.xls, Table 1)
+# ---------------------------------------------------------------------------
+
+def _load_hls_vacancy(cfg: Dict[str, Any]) -> pd.DataFrame:
+    """
+    Load vacancy rates per municipality from HLS 2013 a002.xls (Table 1).
+
+    Column layout (0-indexed, verified against Aomori-ken/a002.xls):
+      1  = 7-digit JISCD code; first 5 chars = muni_code (e.g. '02201')
+      9  = 住宅総数  (total dwellings)
+      15 = 空き家 total (all vacant)
+      19 = その他の住宅 (other vacant = long-term unoccupied / abandoned)
+
+    Data rows start at row 16; rows before that are header / title rows.
+    '-' values in the source table mean zero and are handled by _parse_num.
+
+    Returns [muni_code, hls_vacancy_rate, hls_vacancy_other_rate].
+    Joined to aza by muni_code (avoids name-matching ambiguity).
+    """
+    data_root = Path(cfg["data_root"])
+    frames = []
+    for pref_dir in ("Aomori-ken", "Akita-ken"):
+        path = data_root / "housing_data_japan" / "2013" / pref_dir / "a002.xls"
+        if not path.exists():
+            print(f"  WARNING: {pref_dir}/a002.xls not found; skipping.")
+            continue
+        raw = pd.read_excel(path, header=None, dtype=str)
+        n_parsed = 0
+        for idx in range(16, len(raw)):
+            row = raw.iloc[idx]
+            code_raw = str(row.iloc[1]).strip()
+            if len(code_raw) < 5 or not code_raw[:5].isdigit():
+                continue
+            muni_code = code_raw[:5]
+            try:
+                total = _parse_num(str(row.iloc[9]))
+                vacant_total = _parse_num(str(row.iloc[15]))
+                vacant_other = _parse_num(str(row.iloc[19]))
+                if total > 0:
+                    frames.append({
+                        "muni_code": muni_code,
+                        "hls_vacancy_rate": round(vacant_total / total, 4),
+                        "hls_vacancy_other_rate": round(vacant_other / total, 4),
+                    })
+                else:
+                    frames.append({
+                        "muni_code": muni_code,
+                        "hls_vacancy_rate": np.nan,
+                        "hls_vacancy_other_rate": np.nan,
+                    })
+                n_parsed += 1
+            except (ValueError, TypeError):
+                frames.append({
+                    "muni_code": muni_code,
+                    "hls_vacancy_rate": np.nan,
+                    "hls_vacancy_other_rate": np.nan,
+                })
+        print(f"  {pref_dir}: {n_parsed} municipalities parsed from a002.xls.")
+
+    if not frames:
+        print("  WARNING: No a002 vacancy data loaded. Vacancy features will be NaN.")
+        return pd.DataFrame(columns=["muni_code", "hls_vacancy_rate",
+                                     "hls_vacancy_other_rate"])
+
+    df = pd.DataFrame(frames).drop_duplicates(subset="muni_code")
+    vr = df["hls_vacancy_rate"].dropna()
+    print(f"  HLS vacancy: {len(df)} municipalities, "
+          f"vacancy_rate {vr.min():.3f}-{vr.max():.3f} (mean {vr.mean():.3f}).")
+    return df
 
 
 # ---------------------------------------------------------------------------
@@ -589,6 +684,13 @@ def _build_muni_name_lookup(cfg: Dict[str, Any]) -> dict[str, str]:
             except (ValueError, TypeError):
                 pass
 
+    # Strip leading gun (district) prefix from CITYNAME for towns/villages.
+    # Census format: "上北郡おいらせ町"; HLS + finance PDFs use "おいらせ町".
+    # Cities (市) have no 郡 prefix, so the sub() is a no-op for them.
+    lookup = {
+        code: re.sub(r"^.+郡", "", name).strip()
+        for code, name in lookup.items()
+    }
     print(f"  Muni name lookup: {len(lookup)} municipalities.")
     return lookup
 
@@ -628,11 +730,9 @@ def build_feature_matrix(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
     dem_flags = _build_demographic_flags(base, aza_id_col)
     base = base.merge(dem_flags, on=aza_id_col, how="left")
 
-    # ---- 2. GLCM texture proxy -----------------------------------------
-    print("Loading GLCM texture proxy...")
-    glcm = _load_glcm_proxy(cfg)
-    _assert_key_alignment(base, glcm, aza_id_col, "GLCM proxy")
-    base = base.merge(glcm, on=aza_id_col, how="left")
+    # GLCM proxy step removed: S2_NDBI_* columns are EO/RS and are listed
+    # in banned_columns — they will be stripped below along with all other
+    # Phase A remote-sensing columns present in the base frame.
 
     # ---- 3. Finance (broadcast muni -> aza) ----------------------------
     print("Loading finance features from PDFs...")
@@ -672,6 +772,18 @@ def build_feature_matrix(cfg: Dict[str, Any] | None = None) -> pd.DataFrame:
         base["hls_pre1981_ratio"] = np.nan
         base["hls_total_dwellings"] = np.nan
         base["hls_missing"] = 1
+
+    # ---- 4b. HLS vacancy (broadcast muni -> aza) -------------------------
+    print("Loading Housing and Land Survey 2013 vacancy rates...")
+    vacancy = _load_hls_vacancy(cfg)
+    if len(vacancy) > 0 and "muni_code" in base.columns:
+        unmatched_vac = len(set(base["muni_code"].dropna()) - set(vacancy["muni_code"].dropna()))
+        if unmatched_vac:
+            print(f"  NOTE: {unmatched_vac} municipalities in base have no a002 vacancy match.")
+        base = base.merge(vacancy, on="muni_code", how="left")
+    else:
+        base["hls_vacancy_rate"] = np.nan
+        base["hls_vacancy_other_rate"] = np.nan
 
     # ---- 5. Kaso flag ---------------------------------------------------
     print("Building kaso designation flags...")

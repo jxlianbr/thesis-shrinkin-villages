@@ -1,0 +1,12 @@
+mechanism,mean_abs_shap,n_features,features
+durability_housing,0.07187661081552506,5,"hls_missing, hls_pre1981_ratio, hls_total_dwellings, hls_vacancy_other_rate, hls_vacancy_rate"
+accessibility_medical,0.028889082837849855,4,"dist_medical_m, n_medical_1000m, n_medical_3000m, n_medical_5000m"
+institutional_merger,0.02590024785604328,2,"merged_flag, years_since_merger"
+accessibility_did,0.023107715882360935,2,"dist_did_m, in_did"
+accessibility_transit,0.02188025154173374,5,"dist_bus_route_m, dist_bus_stop_m, n_bus_stop_1000m, n_bus_stop_3000m, n_bus_stop_5000m"
+accessibility_education,0.019109058007597924,5,"dist_elementary_m, dist_school_m, n_school_1000m, n_school_3000m, n_school_5000m"
+institutional_fiscal,0.017437205679016188,8,"fin_fiscal_strength_index, fin_local_alloc_tax, fin_local_tax, fin_real_balance, fin_std_fiscal_need, fin_std_fiscal_revenue, fin_total_expenditure, fin_total_revenue"
+accessibility_community,0.017351309885270894,4,"dist_community_facility_m, n_community_facility_1000m, n_community_facility_3000m, n_community_facility_5000m"
+accessibility_hospital,0.014666414819657803,1,dist_hospital_m
+demographic_threshold,0.0034898366357083432,4,"elderly_flag_severely, elderly_flag_shrinking, household_size, household_size_small"
+institutional_policy,0.002988162392284721,2,"kaso_flag, kaso_type"

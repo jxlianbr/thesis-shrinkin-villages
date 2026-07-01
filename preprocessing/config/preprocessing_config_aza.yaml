@@ -16,9 +16,10 @@ drop:
 temporal_aggregation:
   # Features that get mean + std
   mean_std_features: [B2, B3, B4, B8, B11, NDVI, NDBI, MNDWI, viirs_mean,
-                      S2_NDBI_contrast, S2_NDBI_entropy, S2_NDBI_homogeneity]
+                      S2_NDBI_contrast, S2_NDBI_entropy, S2_NDBI_homogeneity,
+                      dw_bare_frac]
   # Features that additionally get trend slope
-  trend_features: [NDVI, NDBI, MNDWI, viirs_mean]
+  trend_features: [NDVI, NDBI, MNDWI, viirs_mean, dw_bare_frac]
   # Features that additionally get seasonal amplitude (max-min monthly mean)
   seasonal_features: [NDVI, NDBI, MNDWI]
 
@@ -34,9 +35,12 @@ terrain_features: [elevation_mean, elevation_std, slope_mean, slope_std,
                    aspect_sin_mean, aspect_cos_mean, tri_mean]
 
 # LULC features (static per unit -- just take first value)
+# dw_bare_frac is intentionally absent: it is now monthly time-varying
+# (see features.compute_lulc_monthly in config.yaml) and is handled by
+# temporal_aggregation as a trend feature instead.
 lulc_features: [dw_water_frac, dw_trees_frac, dw_grass_frac, dw_flooded_vegetation_frac,
                 dw_crops_frac, dw_shrub_and_scrub_frac, dw_built_frac,
-                dw_bare_frac, dw_snow_and_ice_frac]
+                dw_snow_and_ice_frac]
 
 # Feature engineering: derived features to compute
 derived_features:

@@ -45,7 +45,8 @@ step reads it.  Run from the repo root (`D:/data_code_masterthesis/code/`).
 | `accessibility_features.py` | Euclidean nearest-distance (m) from aza representative points to DID, medical, hospital-only, school, elementary, bus stop, bus route, community facility (P05); buffer counts |
 | `feature_matrix.py` | Joins all predictor families on `unit_id`; enforces leakage guards before every merge; kaso flags from the official designation list with 一部過疎 resolved to aza accuracy via point-in-polygon against pre-merger N03 2000 boundaries; HLS durability broadcast muni→aza |
 | `cv_train.py` | Municipality-blocked StratifiedGroupKFold CV; imports Phase A `cross_validation.py`; trains final XGBoost; same `--dw_bare_robust` etc. flags as `target_builder.py` |
-| `explain.py` | SHAP TreeExplainer; aggregates by Section 2.2 mechanism cluster; exports case shortlist of structurally-deteriorating units; same target-variant flags |
+| `loo_check.py` | Leave-one-municipality-out robustness check (executes the `cross_validation.loo_check` config key, which previously had no implementing code): each of the 65 municipalities held out once, pooled OOF R2 plus a jackknife recomputing that R2 without each municipality. Level target: pooled R2=0.524, jackknife [0.513, 0.543]; trajectory: 0.048 [0.018, 0.064]. Outputs `loo_check{,_dw_bare_robust}.json`; backs the thesis §5.2/§6.5 robustness claims |
+| `explain.py` | SHAP TreeExplainer; aggregates by Section 2.2 mechanism cluster; exports case shortlist of largest-positive-residual units (meaning is variant-dependent: fabric above demographic expectation for the level target, fastest bare-ground expansion for the dw_bare variants); same target-variant flags |
 | `spatial_autocorrelation.py` | Moran's I (Queen contiguity, permutation p) on the residual target and on the grouped-CV out-of-fold residuals; mirrors the Phase A diagnostic in `typology/src/step3_relationships.py`; same target-variant flags |
 
 ---
@@ -62,7 +63,7 @@ All paths, column names, and hyperparameters live in
 | `crs_project` | `EPSG:6680` | Metric CRS for all distance computation |
 | `finance.max_fiscal_year` | `2014` | Hard leakage guard (raises if violated) |
 | `cross_validation.grouping.enabled` | `true` | Municipality-blocked CV |
-| `nlni.community_facilities.aomori/akita` | `null` | Set to P05 paths when data arrives |
+| `nlni.community_facilities.aomori/akita` | P05-10 shapefile paths | Community-facility layer (live data since the P05-10 download; no longer a stub) |
 
 ---
 
@@ -72,7 +73,7 @@ All paths, column names, and hyperparameters live in
 |------|--------|---------------|
 | P05 community facilities | **RESOLVED** — real shapefiles loaded (`P05-10_02_GML`/`P05-10_05_GML`); `accessibility_community` is a live, non-trivial SHAP mechanism | none |
 | Finance pre-2015 | PDFs only; regex extractor implemented | Verify extraction quality on `1018-15-9_02.pdf`; may need manual QA |
-| Kaso 一部過疎 roaza assignment | Municipality-level only | Requires 旧町村 boundary layer to assign individual aza |
+| Kaso 一部過疎 aza assignment | **RESOLVED 2026-07-02** — point-in-polygon against pre-merger N03 2000 boundaries (`data/kaso_list/boundaries_2000/`); flags 2,604 → 180 aza | none |
 | dw_bare_frac_slope trajectory target | **RESOLVED 2026-06-30** — see FINDINGS.md "Target Validation: Theil-Sen Fix"; `--dw_bare_robust` is now the active target | none (null result confirmed stable) |
 
 ---
@@ -109,6 +110,7 @@ Test coverage:
    of `unit_code`).  The crosswalk is derived from the Phase A base frame and
    never hardcoded.
 
-5. **P05 stub**: `dist_community_facility_m` and `n_community_facility_*m`
-   are `NaN` until P05 shapefiles are added and config paths are set.  The
-   columns are present in every output so downstream joins never break.
+5. **P05 live**: `dist_community_facility_m` and `n_community_facility_*m`
+   are computed from the real P05-10 shapefiles (formerly a NaN stub while
+   the data was outstanding).  The columns are present in every output so
+   downstream joins never break.

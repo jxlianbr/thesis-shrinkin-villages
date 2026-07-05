@@ -4,7 +4,10 @@ Phase B — SHAP attributions and mechanism-cluster mapping.
 Exports:
   1. Per-aza SHAP values (parquet)
   2. SHAP importance aggregated by Section 2.2 mechanism cluster (CSV)
-  3. Case shortlist: aza units with the largest positive residuals (CSV)
+  3. Case shortlist: aza units with the largest positive residuals (CSV).
+     What a positive residual MEANS depends on the target variant: standing
+     fabric above demographic expectation for the level target, bare ground
+     expanding faster than demographic expectation for the dw_bare variants.
 
 The mechanism taxonomy maps feature name prefixes to cluster labels
 defined in the config under explain.mechanism_taxonomy.
@@ -126,8 +129,13 @@ def build_case_shortlist(
     """
     Return the `n` aza units with the largest positive residuals.
 
-    Largest positive residual = physical condition worse than demography
-    alone would predict — structurally deteriorating cases.
+    The interpretation of a positive residual is variant-dependent (no sign
+    flip is applied anywhere in target_builder.py):
+      - Level target (S2_NDBI_contrast_mean): higher contrast tracks
+        physically stronger settlements, so positive = standing fabric ABOVE
+        demographic expectation — resilience candidates for Chapter 6.
+      - dw_bare variants (bare-ground slope): positive = bare ground expanding
+        faster than demographic expectation — deterioration candidates.
 
     For each case, include the top-3 SHAP drivers and their mechanism cluster.
     """
@@ -306,11 +314,18 @@ def run_explain(
         print(f"  {row['mechanism']:40s}  mean_abs_shap={row['mean_abs_shap']:.4f} "
               f"(n={row['n_features']} features)")
 
-    # Case shortlist
+    # Case shortlist — positive-residual meaning depends on the target variant
+    # (see build_case_shortlist docstring).
+    if dw_bare or dw_bare_robust:
+        case_desc = "bare ground expanding fastest vs demographic expectation"
+    elif trajectory or ndbi:
+        case_desc = "largest trend residual (retired variant, reference only)"
+    else:
+        case_desc = "standing fabric most above demographic expectation"
     case_shortlist = build_case_shortlist(
         data_valid, shap_df, target_col, aza_id_col, n_cases, taxonomy,
     )
-    print(f"\nTop-{n_cases} positive residual cases (structurally deteriorating){tag}:")
+    print(f"\nTop-{n_cases} positive residual cases ({case_desc}){tag}:")
     print(case_shortlist[[aza_id_col, target_col, "top_shap_drivers"]].to_string())
 
     # Persist

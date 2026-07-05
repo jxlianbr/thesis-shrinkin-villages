@@ -38,14 +38,15 @@ Generated 2026-06-21.
 | `Bus_stops/P11-10_05_GML/P11-10_05_GML/` | same pattern | Bus stops | 2010 | None→EPSG:4612 | Point | same | — |
 | `Bus_routes/N07-11_02_GML/N07-11_02_GML/` | `N07-11_02.shp` | Bus routes | 2011 | None→EPSG:4612 | LineString (M stripped) | N07_001–N07_007 | 343 |
 | `Bus_routes/N07-11_05_GML/N07-11_05_GML/` | same pattern | Bus routes | 2011 | None→EPSG:4612 | LineString | same | — |
-| `community_facilities/` | **ABSENT** | P05 community facilities | — | — | — | — | **STUB** |
+| `P05/P05-10_02_GML/` | `P05-10_02-g_LocalGovernmentOfficeAndPublicMeetingFacility.shp` | Community facilities (gov. offices + public assembly, incl. Kominkan-type) | 2010 | EPSG:4612 | Point | P05_001 (muni code), P05_002 (type), P05_003 (name) | — |
+| `P05/P05-10_05_GML/` | same pattern | Community facilities | 2010 | EPSG:4612 | Point | same | — |
 
 **Known issues:**  
 - DID `.shp` has no `.prj` file; CRS assigned as EPSG:4612 at load time.  
 - DID `A16_011` is a `datetime64[D]` field with year-0 values (pyogrio error); skipped in loader.  
 - Bus stops / routes have no `.prj`; CRS assigned as EPSG:4612.  
 - Bus routes use Measured (M) geometry; pyogrio auto-converts to plain LineString.  
-- P05 community facilities not yet available; `dist_community_facility_m` and `n_community_facility_*m` are NaN stubs.
+- P05 community facilities loaded (2010 vintage, downloaded 2026-06-21); `dist_community_facility_m` and `n_community_facility_*m` are live columns (formerly NaN stubs).
 
 ---
 

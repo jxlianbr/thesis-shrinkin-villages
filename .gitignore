@@ -26,6 +26,15 @@ Thumbs.db
 outputs/*
 !outputs/.gitkeep
 
+# Generated figures, HTML reports, and serialized models (regenerable from the
+# pipeline with random_state=42; numeric results stay tracked as CSV/JSON/parquet)
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.html
+*.joblib
+
 # Local data (keep raw inputs out of Git; track via docs/data_manifest.md instead)
 data_raw/
 data_intermediate/

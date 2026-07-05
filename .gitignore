@@ -51,3 +51,7 @@ admin_demographics/boundaries_export/
 
 # Run logs (regenerable transcripts)
 run_aza.log
+
+# Oversized generated EDA table (151 MB, exceeds GitHub's 100 MB limit;
+# regenerable via eda/run_eda.py)
+eda/outputs*/tables/outlier_observations.csv

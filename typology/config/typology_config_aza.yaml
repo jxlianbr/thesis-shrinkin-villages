@@ -138,6 +138,9 @@ plot:
     Aomori: "#2196F3"
     Akita: "#FF9800"
   cluster_palette: "Set2"
+  # 9,031 aza polygons: hairline boundaries so fills stay readable
+  map_edge_linewidth: 0.1
+  map_edge_color: "#666666"
 
 # --- Report ---
 report:

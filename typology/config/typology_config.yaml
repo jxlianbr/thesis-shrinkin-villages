@@ -138,6 +138,8 @@ plot:
     Aomori: "#2196F3"
     Akita: "#FF9800"
   cluster_palette: "Set2"
+  map_edge_linewidth: 0.5
+  map_edge_color: "black"
 
 # --- Report ---
 report:

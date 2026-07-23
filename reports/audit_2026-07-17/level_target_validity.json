@@ -1,0 +1,244 @@
+{
+  "item1_area_diagnostics": {
+    "contrast_scaled_parent__vs__area_m2": {
+      "pearson": -0.4529,
+      "pearson_p": 0.0,
+      "spearman": -0.9021,
+      "spearman_p": 0.0,
+      "n": 7448
+    },
+    "contrast_scaled_parent__vs__log_area": {
+      "pearson": -0.9123,
+      "pearson_p": 0.0,
+      "spearman": -0.9021,
+      "spearman_p": 0.0,
+      "n": 7448
+    },
+    "contrast_raw__vs__area_m2": {
+      "pearson": -0.2533,
+      "pearson_p": 3.726534347395648e-107,
+      "spearman": -0.9279,
+      "spearman_p": 0.0,
+      "n": 7291
+    },
+    "contrast_raw__vs__log_area": {
+      "pearson": -0.8562,
+      "pearson_p": 0.0,
+      "spearman": -0.9279,
+      "spearman_p": 0.0,
+      "n": 7291
+    },
+    "residual_target__vs__area_m2": {
+      "pearson": -0.4212,
+      "pearson_p": 3.617964e-318,
+      "spearman": -0.8411,
+      "spearman_p": 0.0,
+      "n": 7448
+    },
+    "residual_target__vs__log_area": {
+      "pearson": -0.8563,
+      "pearson_p": 0.0,
+      "spearman": -0.8411,
+      "spearman_p": 0.0,
+      "n": 7448
+    }
+  },
+  "item2_osm_diagnostics": {
+    "osm_columns_in_monthly_panel": [
+      "osm_built_area",
+      "osm_building_count",
+      "osm_built_ratio"
+    ],
+    "osm_columns_in_classification_ready_aza": [
+      "osm_built_area",
+      "osm_built_ratio"
+    ],
+    "contrast_raw__vs__osm_built_area": {
+      "pearson": -0.1469,
+      "pearson_p": 1.9074985018660414e-36,
+      "spearman": -0.0084,
+      "spearman_p": 0.4726546799785304,
+      "n": 7291
+    },
+    "contrast_scaled__vs__osm_built_area": {
+      "pearson": -0.2246,
+      "pearson_p": 8.04266335396532e-86,
+      "spearman": -0.0052,
+      "spearman_p": 0.6536761287653137,
+      "n": 7448
+    },
+    "contrast_raw__vs__osm_building_count": {
+      "pearson": -0.1174,
+      "pearson_p": 8.718374003218001e-24,
+      "spearman": 0.0372,
+      "spearman_p": 0.0014843730429725949,
+      "n": 7291
+    },
+    "contrast_scaled__vs__osm_building_count": {
+      "pearson": -0.1854,
+      "pearson_p": 1.4830754155826957e-58,
+      "spearman": 0.0393,
+      "spearman_p": 0.0006853433133551103,
+      "n": 7448
+    },
+    "contrast_raw__vs__osm_built_ratio": {
+      "pearson": 0.5589,
+      "pearson_p": 0.0,
+      "spearman": 0.546,
+      "spearman_p": 0.0,
+      "n": 7291
+    },
+    "contrast_scaled__vs__osm_built_ratio": {
+      "pearson": 0.5031,
+      "pearson_p": 0.0,
+      "spearman": 0.536,
+      "spearman_p": 0.0,
+      "n": 7448
+    }
+  },
+  "item3_residualizing_ols": {
+    "regressors_final": [
+      "elderly_ratio",
+      "pop_total",
+      "log_area"
+    ],
+    "r_squared": 0.8511,
+    "adj_r_squared": 0.851,
+    "n": 7448,
+    "residual_sd": 0.2845
+  },
+  "item3_cv_adjusted": {
+    "mean_metrics": {
+      "r2": -0.1413,
+      "rmse": 0.3009,
+      "mae": 0.2109
+    },
+    "std_metrics": {
+      "r2": 0.1539,
+      "rmse": 0.0263,
+      "mae": 0.0193
+    },
+    "n_folds": 25,
+    "n_features": 42
+  },
+  "item3_mechanism_ranking_adjusted": [
+    {
+      "mechanism": "accessibility_hospital",
+      "mean_abs_shap": 0.00974,
+      "n_features": 1
+    },
+    {
+      "mechanism": "accessibility_medical",
+      "mean_abs_shap": 0.0075,
+      "n_features": 4
+    },
+    {
+      "mechanism": "accessibility_community",
+      "mean_abs_shap": 0.00608,
+      "n_features": 4
+    },
+    {
+      "mechanism": "accessibility_transit",
+      "mean_abs_shap": 0.00591,
+      "n_features": 5
+    },
+    {
+      "mechanism": "institutional_merger",
+      "mean_abs_shap": 0.0045,
+      "n_features": 2
+    },
+    {
+      "mechanism": "durability_housing",
+      "mean_abs_shap": 0.00449,
+      "n_features": 5
+    },
+    {
+      "mechanism": "demographic_threshold",
+      "mean_abs_shap": 0.00447,
+      "n_features": 4
+    },
+    {
+      "mechanism": "accessibility_education",
+      "mean_abs_shap": 0.00437,
+      "n_features": 5
+    },
+    {
+      "mechanism": "institutional_fiscal",
+      "mean_abs_shap": 0.0036,
+      "n_features": 8
+    },
+    {
+      "mechanism": "accessibility_did",
+      "mean_abs_shap": 0.00354,
+      "n_features": 2
+    },
+    {
+      "mechanism": "institutional_policy",
+      "mean_abs_shap": 0.00334,
+      "n_features": 2
+    }
+  ],
+  "item3_mechanism_ranking_before": [
+    {
+      "mechanism": "accessibility_medical",
+      "mean_abs_shap": 0.05392,
+      "n_features": 4
+    },
+    {
+      "mechanism": "accessibility_transit",
+      "mean_abs_shap": 0.04652,
+      "n_features": 5
+    },
+    {
+      "mechanism": "demographic_threshold",
+      "mean_abs_shap": 0.03439,
+      "n_features": 4
+    },
+    {
+      "mechanism": "accessibility_did",
+      "mean_abs_shap": 0.02833,
+      "n_features": 2
+    },
+    {
+      "mechanism": "accessibility_community",
+      "mean_abs_shap": 0.01814,
+      "n_features": 4
+    },
+    {
+      "mechanism": "accessibility_education",
+      "mean_abs_shap": 0.01796,
+      "n_features": 5
+    },
+    {
+      "mechanism": "accessibility_hospital",
+      "mean_abs_shap": 0.01114,
+      "n_features": 1
+    },
+    {
+      "mechanism": "institutional_merger",
+      "mean_abs_shap": 0.00958,
+      "n_features": 2
+    },
+    {
+      "mechanism": "institutional_fiscal",
+      "mean_abs_shap": 0.00919,
+      "n_features": 8
+    },
+    {
+      "mechanism": "durability_housing",
+      "mean_abs_shap": 0.00785,
+      "n_features": 5
+    },
+    {
+      "mechanism": "institutional_policy",
+      "mean_abs_shap": 0.00454,
+      "n_features": 2
+    }
+  ],
+  "item3b_confirmatory_predict_log_area": {
+    "target": "log_area",
+    "mean_r2": 0.4106,
+    "sd_r2": 0.1441,
+    "mean_rmse": 1.2651
+  }
+}

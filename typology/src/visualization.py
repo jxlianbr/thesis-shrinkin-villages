@@ -373,24 +373,47 @@ def plot_cluster_map(
         print("  geopandas not available -- skipping cluster map")
         return None
 
+    from matplotlib.colors import ListedColormap
+
     gdf = gdf.copy()
 
-    # Merge cluster labels
+    # Merge cluster labels; keep them as int strings so the legend does not
+    # show floats (the left join casts to float when units lack a label)
     id_df = identifiers.copy()
-    id_df["cluster"] = labels
+    id_df["cluster"] = [str(int(v)) for v in labels]
     gdf = gdf.merge(id_df[["unit_id", "cluster"]], on="unit_id", how="left")
 
-    fig, ax = plt.subplots(figsize=cfg["plot"]["figsize_single"])
-    gdf.plot(
-        column="cluster",
-        categorical=True,
-        cmap=cfg["plot"]["cluster_palette"],
-        legend=True,
-        edgecolor="black",
-        linewidth=0.5,
-        ax=ax,
-        legend_kwds={"title": "Cluster", "loc": "lower right"},
+    # Same first-k palette colors as every other cluster figure; passing the
+    # palette name as cmap would instead sample it evenly and mismatch
+    k = len(np.unique(labels))
+    cmap = ListedColormap(
+        sns.color_palette(cfg["plot"]["cluster_palette"], n_colors=k)
     )
+
+    plot_cfg = cfg["plot"]
+    edge_linewidth = plot_cfg.get("map_edge_linewidth", 0.5)
+    edge_color = plot_cfg.get("map_edge_color", "black")
+
+    fig, ax = plt.subplots(figsize=plot_cfg["figsize_single"])
+    # hatch.linewidth is an rcParam, not a plot kwarg
+    with plt.rc_context({"hatch.linewidth": 0.5}):
+        gdf.plot(
+            column="cluster",
+            categorical=True,
+            cmap=cmap,
+            legend=True,
+            edgecolor=edge_color,
+            linewidth=edge_linewidth,
+            ax=ax,
+            legend_kwds={"title": "Cluster", "loc": "lower right"},
+            missing_kwds={
+                "facecolor": "white",
+                "edgecolor": "#999999",
+                "linewidth": edge_linewidth,
+                "hatch": "////",
+                "label": "No data",
+            },
+        )
     ax.set_title("Cluster Assignments (spatial)")
     ax.set_axis_off()
     fig.tight_layout()

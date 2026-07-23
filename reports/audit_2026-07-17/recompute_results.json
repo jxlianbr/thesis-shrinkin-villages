@@ -1,0 +1,90 @@
+{
+  "item1_panel": {
+    "panel_file": "outputs/final/features_table_aza.parquet",
+    "shape_rows": 1165032,
+    "shape_cols": 46,
+    "n_distinct_unit_ids": 8826,
+    "n_distinct_months": 132,
+    "units_x_months": 1165032,
+    "rows_equal_units_x_months": true,
+    "classification_ready_rows": 7448,
+    "classification_ready_distinct_units": 7448,
+    "n_panel_units_not_in_ready": 1378,
+    "ready_is_subset_of_panel": true
+  },
+  "item2_rmse": {
+    "cv_results_fold_mean_r2": 0.5080099110266328,
+    "cv_results_fold_mean_rmse": 0.4826256698231244,
+    "recomputed_pooled_oof_rmse": 0.4822,
+    "recomputed_pooled_oof_r2": 0.5286,
+    "target_sd_ddof0": 0.7023,
+    "target_sd_ddof1": 0.7023,
+    "parent_variable_sd": 0.7372,
+    "implied_rmse_from_fold_r2_and_sd": 0.4926,
+    "rmse_if_target_had_unit_variance": 0.7014,
+    "scaler_center_log1p_S2_NDBI_contrast_mean": 8.03794,
+    "scaler_scale_iqr_log1p_S2_NDBI_contrast_mean": 0.978126,
+    "log1p_feature_list_recorded": [],
+    "target_parent_equals_classification_ready_column": false
+  },
+  "item3_moran": {
+    "level_target_residual": {
+      "morans_i": 0.6684,
+      "expected_i": -0.0001,
+      "z_sim": 85.6795,
+      "p_sim": 0.001,
+      "significant_005": true,
+      "n_units": 7448,
+      "n_islands": 13,
+      "permutations": 999
+    },
+    "level_oof_residual": {
+      "morans_i": 0.441,
+      "expected_i": -0.0001,
+      "z_sim": 57.398,
+      "p_sim": 0.001,
+      "significant_005": true,
+      "n_units": 7448,
+      "n_islands": 13,
+      "permutations": 999
+    },
+    "trajectory_target_residual": {
+      "morans_i": 0.4345,
+      "expected_i": -0.0001,
+      "z_sim": 57.21,
+      "p_sim": 0.001,
+      "significant_005": true,
+      "n_units": 7448,
+      "n_islands": 13,
+      "permutations": 999
+    },
+    "trajectory_oof_residual": {
+      "morans_i": 0.4058,
+      "expected_i": -0.0001,
+      "z_sim": 53.1097,
+      "p_sim": 0.001,
+      "significant_005": true,
+      "n_units": 7448,
+      "n_islands": 13,
+      "permutations": 999
+    },
+    "raw_theilsen_slope": {
+      "morans_i": 0.437,
+      "expected_i": -0.0001,
+      "z_sim": 57.5451,
+      "p_sim": 0.001,
+      "significant_005": true,
+      "n_units": 7448,
+      "n_islands": 13,
+      "permutations": 999
+    },
+    "elderly_ratio_ols_residuals": {
+      "morans_i": 0.2219,
+      "z_sim": 27.6756,
+      "p_sim": 0.001,
+      "n_units": 7282,
+      "ols_r_squared": 0.154,
+      "weights_spec": "Queen contiguity, first-part-only polygons (drop_duplicates), EPSG:6690, row-standardised, 999 permutations"
+    }
+  }
+}
